@@ -141,3 +141,41 @@ class TestCapabilityMatcher:
         result = self.matcher.match(envelope)
         if result.selected_capability:
             assert len(result.selection_rationale) > 0
+
+    def test_no_match_policy_decision_is_not_allowed(self) -> None:
+        """When no capability is selected, policy_decision.allowed must be False."""
+        envelope = _make_envelope("totally_unknown_intent", "totally_unknown_domain")
+        result = self.matcher.match(envelope)
+        assert result.requires_clarification is True
+        assert result.selected_capability is None
+        assert result.policy_decision.allowed is False
+
+    def test_successful_match_policy_decision_is_allowed(self) -> None:
+        """When a capability is selected, policy_decision.allowed must be True."""
+        envelope = _make_envelope("retrieve_document", "knowledge_management")
+        result = self.matcher.match(envelope)
+        assert result.selected_capability is not None
+        assert result.policy_decision.allowed is True
+
+    def test_allowed_bindings_filtered_to_preferred(self) -> None:
+        """When envelope specifies a binding, only that binding should be in allowed_bindings."""
+        envelope = _make_envelope(
+            "retrieve_document",
+            "knowledge_management",
+            preferred_binding=BindingType.REST,
+        )
+        result = self.matcher.match(envelope)
+        assert result.selected_capability is not None
+        # All allowed bindings should be REST since that's the only one requested
+        for b in result.allowed_bindings:
+            assert b == BindingType.REST
+
+    def test_allowed_bindings_all_when_no_preference(self) -> None:
+        """When no binding preference is set, all supported bindings should be allowed."""
+        envelope = _make_envelope("retrieve_document", "knowledge_management")
+        result = self.matcher.match(envelope)
+        assert result.selected_capability is not None
+        # Should include all bindings supported by the capability
+        cap_bindings = set(result.selected_capability.supported_bindings)
+        allowed = set(result.allowed_bindings)
+        assert allowed == cap_bindings

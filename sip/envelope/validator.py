@@ -71,9 +71,7 @@ def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
 
     Checks beyond Pydantic structural validation:
       - SIP version is recognised
-      - Operation class is valid
-      - Trust level is valid
-      - Determinism level is valid
+      - Trust level consistency: declared trust must not exceed actor trust
       - Protocol bindings are recognised
       - time_budget_ms is not negative (belt-and-suspenders)
       - cost_budget is not negative (belt-and-suspenders)
@@ -96,37 +94,15 @@ def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
             f"Supported versions: {sorted(_VALID_SIP_VERSIONS)}"
         )
 
-    # --- Operation class (belt-and-suspenders; Pydantic already enforces enum) ---
-    if envelope.intent.operation_class not in OperationClass:
-        result.add_error(
-            f"Invalid operation_class '{envelope.intent.operation_class}'."
-        )
-
-    # --- Trust level ---
-    if envelope.actor.trust_level not in TrustLevel:
-        result.add_error(
-            f"Invalid trust level '{envelope.actor.trust_level}'."
-        )
-    if envelope.trust.declared_trust_level not in TrustLevel:
-        result.add_error(
-            f"Invalid declared trust level '{envelope.trust.declared_trust_level}'."
-        )
-
     # Trust level consistency: declared trust must not exceed actor trust
+    # (escalating declared trust above the actor's actual trust is a protocol violation)
     if (
         _TRUST_ORDER.get(envelope.trust.declared_trust_level, 0)
         > _TRUST_ORDER.get(envelope.actor.trust_level, 0)
     ):
-        result.add_warning(
-            "declared_trust_level exceeds actor trust_level. "
-            "The lower actor trust level will be enforced."
-        )
-
-    # --- Determinism level ---
-    if envelope.constraints.determinism_required not in _VALID_DETERMINISM_LEVELS:
         result.add_error(
-            f"Invalid determinism_required "
-            f"'{envelope.constraints.determinism_required}'."
+            "declared_trust_level exceeds actor trust_level. "
+            "Trust escalation is not permitted."
         )
 
     # --- Protocol bindings ---

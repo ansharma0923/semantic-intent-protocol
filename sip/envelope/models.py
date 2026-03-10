@@ -114,9 +114,9 @@ class MessageType(str, Enum):
 class ActorDescriptor(BaseModel):
     """Describes the entity originating the intent."""
 
-    actor_id: str = Field(description="Unique identifier for the actor.")
+    actor_id: str = Field(description="Unique identifier for the actor.", min_length=1)
     actor_type: ActorType = Field(description="Type of the actor.")
-    name: str = Field(description="Human-readable actor name.")
+    name: str = Field(description="Human-readable actor name.", min_length=1)
     trust_level: TrustLevel = Field(
         default=TrustLevel.INTERNAL,
         description="Trust level assigned to this actor.",
@@ -145,10 +145,12 @@ class IntentPayload(BaseModel):
     """The semantic intent being expressed."""
 
     intent_name: str = Field(
-        description="Short machine-readable intent name (e.g. 'retrieve_document')."
+        description="Short machine-readable intent name (e.g. 'retrieve_document').",
+        min_length=1,
     )
     intent_domain: str = Field(
-        description="Functional domain of the intent (e.g. 'knowledge_management')."
+        description="Functional domain of the intent (e.g. 'knowledge_management').",
+        min_length=1,
     )
     operation_class: OperationClass = Field(
         description="High-level classification of the operation."
@@ -169,7 +171,7 @@ class IntentPayload(BaseModel):
 class DesiredOutcome(BaseModel):
     """Describes what the actor wants as a result."""
 
-    summary: str = Field(description="Brief description of the expected outcome.")
+    summary: str = Field(description="Brief description of the expected outcome.", min_length=1)
     output_format: str | None = Field(
         default=None,
         description="Expected output format (e.g. 'json', 'markdown', 'pdf').",

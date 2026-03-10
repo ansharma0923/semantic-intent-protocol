@@ -146,3 +146,41 @@ class TestEnvelopeConstruction:
                 operation_class=oc,
             )
             assert payload.operation_class == oc
+
+    def test_empty_actor_id_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            ActorDescriptor(
+                actor_id="",
+                actor_type=ActorType.SERVICE,
+                name="Test",
+                trust_level=TrustLevel.INTERNAL,
+            )
+
+    def test_empty_actor_name_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            ActorDescriptor(
+                actor_id="test",
+                actor_type=ActorType.SERVICE,
+                name="",
+                trust_level=TrustLevel.INTERNAL,
+            )
+
+    def test_empty_intent_name_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            IntentPayload(
+                intent_name="",
+                intent_domain="knowledge_management",
+                operation_class=OperationClass.READ,
+            )
+
+    def test_empty_intent_domain_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            IntentPayload(
+                intent_name="retrieve_document",
+                intent_domain="",
+                operation_class=OperationClass.READ,
+            )
+
+    def test_empty_desired_outcome_summary_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            DesiredOutcome(summary="")

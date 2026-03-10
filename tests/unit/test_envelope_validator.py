@@ -146,3 +146,35 @@ class TestEnvelopeValidator:
         result.add_warning("Something is suspicious")
         assert result.valid is True
         assert "Something is suspicious" in result.warnings
+
+    def test_trust_escalation_is_an_error(self) -> None:
+        """declared_trust_level exceeding actor trust_level is a protocol violation."""
+        from sip.envelope.models import TrustBlock
+        envelope = _make_envelope(trust_level=TrustLevel.INTERNAL)
+        # Rebuild with declared trust higher than actor trust
+        envelope_escalated = envelope.model_copy(
+            update={"trust": TrustBlock(declared_trust_level=TrustLevel.ADMIN)}
+        )
+        result = validate_envelope(envelope_escalated)
+        assert result.valid is False
+        assert any("escalat" in e.lower() or "exceed" in e.lower() for e in result.errors)
+
+    def test_valid_trust_same_level_passes(self) -> None:
+        """declared_trust_level equal to actor trust_level should pass."""
+        from sip.envelope.models import TrustBlock
+        envelope = _make_envelope(trust_level=TrustLevel.INTERNAL)
+        envelope_same = envelope.model_copy(
+            update={"trust": TrustBlock(declared_trust_level=TrustLevel.INTERNAL)}
+        )
+        result = validate_envelope(envelope_same)
+        assert result.valid is True
+
+    def test_valid_trust_lower_declared_passes(self) -> None:
+        """declared_trust_level below actor trust_level should pass."""
+        from sip.envelope.models import TrustBlock
+        envelope = _make_envelope(trust_level=TrustLevel.PRIVILEGED)
+        envelope_lower = envelope.model_copy(
+            update={"trust": TrustBlock(declared_trust_level=TrustLevel.INTERNAL)}
+        )
+        result = validate_envelope(envelope_lower)
+        assert result.valid is True

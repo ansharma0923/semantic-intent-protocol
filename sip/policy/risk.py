@@ -14,6 +14,7 @@ from sip.registry.models import RiskLevel
 _APPROVAL_REQUIRED_COMBINATIONS: set[tuple[RiskLevel, OperationClass]] = {
     (RiskLevel.HIGH, OperationClass.WRITE),
     (RiskLevel.HIGH, OperationClass.EXECUTE),
+    (RiskLevel.HIGH, OperationClass.DELEGATE),
     (RiskLevel.CRITICAL, OperationClass.WRITE),
     (RiskLevel.CRITICAL, OperationClass.EXECUTE),
     (RiskLevel.CRITICAL, OperationClass.READ),

@@ -155,17 +155,18 @@ class CapabilityMatcher:
         # Build allowed bindings
         allowed_bindings: list[BindingType] = []
         if selected_capability:
-            for b in selected_capability.supported_bindings:
-                if not envelope.protocol_bindings or any(
-                    pb.binding_type == b for pb in envelope.protocol_bindings
-                ):
-                    allowed_bindings.append(b)
-            # If no protocol_bindings were specified, all supported bindings are allowed
-            if not envelope.protocol_bindings:
+            if envelope.protocol_bindings:
+                # Only include bindings that are both supported and in the envelope's list
+                requested = {pb.binding_type for pb in envelope.protocol_bindings}
+                allowed_bindings = [
+                    b for b in selected_capability.supported_bindings if b in requested
+                ]
+            else:
+                # No binding preference: all supported bindings are allowed
                 allowed_bindings = list(selected_capability.supported_bindings)
 
         policy_decision = PolicyDecisionSummary(
-            allowed=not requires_clarification or len(ranked_candidates) > 0,
+            allowed=selected_capability is not None,
             requires_approval=False,  # Will be enriched by the policy engine
             policy_notes=[],
         )

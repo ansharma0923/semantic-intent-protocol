@@ -147,6 +147,46 @@ class TestPolicyEngine:
         result = self.engine.evaluate(envelope_long_chain, negotiation)
         assert result.policy_decision.allowed is False
 
+    def test_critical_risk_restricted_data_is_denied(self) -> None:
+        """CRITICAL risk + RESTRICTED data sensitivity must be denied."""
+        from sip.policy.risk import is_denied_by_risk
+        from sip.envelope.models import DataSensitivity
+        from sip.registry.models import RiskLevel
+        assert is_denied_by_risk(RiskLevel.CRITICAL, DataSensitivity.RESTRICTED) is True
+
+    def test_low_risk_restricted_data_is_not_denied(self) -> None:
+        """LOW risk + RESTRICTED data sensitivity should not be denied."""
+        from sip.policy.risk import is_denied_by_risk
+        from sip.envelope.models import DataSensitivity
+        from sip.registry.models import RiskLevel
+        assert is_denied_by_risk(RiskLevel.LOW, DataSensitivity.RESTRICTED) is False
+
+    def test_high_delegate_requires_approval(self) -> None:
+        """HIGH risk + DELEGATE should require human approval."""
+        from sip.policy.risk import requires_approval
+        from sip.envelope.models import OperationClass
+        from sip.registry.models import RiskLevel
+        assert requires_approval(RiskLevel.HIGH, OperationClass.DELEGATE) is True
+
+    def test_medium_delegate_does_not_require_approval(self) -> None:
+        """MEDIUM risk + DELEGATE should not require approval."""
+        from sip.policy.risk import requires_approval
+        from sip.envelope.models import OperationClass
+        from sip.registry.models import RiskLevel
+        assert requires_approval(RiskLevel.MEDIUM, OperationClass.DELEGATE) is False
+
+    def test_approval_not_enforced_in_non_production(self) -> None:
+        """When enforce_approval_policy=False, approval is never required."""
+        from sip.policy.risk import requires_approval
+        from sip.envelope.models import OperationClass
+        from sip.registry.models import RiskLevel
+        assert (
+            requires_approval(
+                RiskLevel.CRITICAL, OperationClass.EXECUTE, enforce_approval_policy=False
+            )
+            is False
+        )
+
 
 class TestScopeChecking:
     def test_all_required_scopes_granted(self) -> None:

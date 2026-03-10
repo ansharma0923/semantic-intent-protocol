@@ -36,8 +36,8 @@ class RiskLevel(str, Enum):
 class ProviderMetadata(BaseModel):
     """Metadata about the provider of a capability."""
 
-    provider_id: str = Field(description="Unique provider identifier.")
-    provider_name: str = Field(description="Human-readable provider name.")
+    provider_id: str = Field(description="Unique provider identifier.", min_length=1)
+    provider_name: str = Field(description="Human-readable provider name.", min_length=1)
     contact: str | None = Field(
         default=None,
         description="Contact email or URL for the provider.",
@@ -140,9 +140,10 @@ class CapabilityDescriptor(BaseModel):
     """
 
     capability_id: str = Field(
-        description="Unique capability identifier (e.g. 'retrieve_document')."
+        description="Unique capability identifier (e.g. 'retrieve_document').",
+        min_length=1,
     )
-    name: str = Field(description="Human-readable capability name.")
+    name: str = Field(description="Human-readable capability name.", min_length=1)
     description: str = Field(description="What this capability does.")
     provider: ProviderMetadata = Field(description="Provider metadata.")
     intent_domains: list[str] = Field(
