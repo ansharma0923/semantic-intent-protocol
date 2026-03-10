@@ -141,3 +141,41 @@ class TestExecutionPlanner:
         negotiation = self.matcher.match(envelope)
         plan = self.planner.plan(envelope, negotiation)
         assert plan.execution_steps[0].capability_id == "diagnose_network_issue"
+
+
+class TestPlannerPolicyChecks:
+    """The planner should record accurate policy check results."""
+
+    def setup_method(self) -> None:
+        self.registry = build_seeded_registry()
+        self.matcher = CapabilityMatcher(self.registry)
+        self.planner = ExecutionPlanner()
+
+    def test_trust_check_passes_for_matching_trust(self) -> None:
+        envelope = _make_envelope("retrieve_document", "knowledge_management")
+        negotiation = self.matcher.match(envelope)
+        plan = self.planner.plan(envelope, negotiation)
+        trust_check = next(
+            c for c in plan.policy_checks_passed if c.check_name == "trust_level"
+        )
+        assert trust_check.result == "passed"
+
+    def test_opclass_check_passes_for_matching_class(self) -> None:
+        envelope = _make_envelope(
+            "retrieve_document", "knowledge_management",
+            operation_class=OperationClass.RETRIEVE,
+        )
+        negotiation = self.matcher.match(envelope)
+        plan = self.planner.plan(envelope, negotiation)
+        opclass_check = next(
+            c for c in plan.policy_checks_passed if c.check_name == "operation_class_match"
+        )
+        assert opclass_check.result == "passed"
+
+    def test_plan_policy_check_names_are_present(self) -> None:
+        envelope = _make_envelope("retrieve_document", "knowledge_management")
+        negotiation = self.matcher.match(envelope)
+        plan = self.planner.plan(envelope, negotiation)
+        check_names = {c.check_name for c in plan.policy_checks_passed}
+        assert "trust_level" in check_names
+        assert "operation_class_match" in check_names

@@ -6,20 +6,19 @@ from an actor to a target. All fields are strongly typed via Pydantic.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
 
 
-class ActorType(str, Enum):
+class ActorType(StrEnum):
     """Types of actors that can originate an intent."""
 
     HUMAN = "human"
@@ -28,7 +27,7 @@ class ActorType(str, Enum):
     SYSTEM = "system"
 
 
-class TargetType(str, Enum):
+class TargetType(StrEnum):
     """Types of targets that can receive an intent."""
 
     CAPABILITY = "capability"
@@ -38,7 +37,7 @@ class TargetType(str, Enum):
     BROADCAST = "broadcast"
 
 
-class OperationClass(str, Enum):
+class OperationClass(StrEnum):
     """High-level classification of the operation being requested."""
 
     READ = "read"
@@ -49,7 +48,7 @@ class OperationClass(str, Enum):
     DELEGATE = "delegate"
 
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     """Execution priority hint."""
 
     LOW = "low"
@@ -58,7 +57,7 @@ class Priority(str, Enum):
     CRITICAL = "critical"
 
 
-class DeterminismLevel(str, Enum):
+class DeterminismLevel(StrEnum):
     """Required determinism level for execution."""
 
     STRICT = "strict"       # Fully deterministic; same input → same output
@@ -66,7 +65,7 @@ class DeterminismLevel(str, Enum):
     ADVISORY = "advisory"   # Best-effort; result may vary
 
 
-class TrustLevel(str, Enum):
+class TrustLevel(StrEnum):
     """Trust tier of the originating actor."""
 
     PUBLIC = "public"
@@ -75,7 +74,7 @@ class TrustLevel(str, Enum):
     ADMIN = "admin"
 
 
-class DataSensitivity(str, Enum):
+class DataSensitivity(StrEnum):
     """Data sensitivity classification."""
 
     PUBLIC = "public"
@@ -84,7 +83,7 @@ class DataSensitivity(str, Enum):
     RESTRICTED = "restricted"
 
 
-class BindingType(str, Enum):
+class BindingType(StrEnum):
     """Supported execution protocol bindings."""
 
     REST = "rest"
@@ -94,7 +93,7 @@ class BindingType(str, Enum):
     RAG = "rag"
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     """SIP message type classification."""
 
     INTENT_REQUEST = "intent_request"
@@ -348,7 +347,7 @@ class IntentEnvelope(BaseModel):
         description="Current span identifier within the trace.",
     )
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="ISO 8601 timestamp when the envelope was created.",
     )
     actor: ActorDescriptor = Field(description="The originating actor.")

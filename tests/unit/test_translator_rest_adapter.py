@@ -21,7 +21,6 @@ from sip.negotiation.matcher import CapabilityMatcher
 from sip.negotiation.planner import ExecutionPlanner
 from sip.registry.bootstrap import build_seeded_registry
 from sip.translator.a2a_adapter import A2aAdapter
-from sip.translator.base import BaseAdapter
 from sip.translator.grpc_adapter import GrpcAdapter
 from sip.translator.mcp_adapter import McpAdapter
 from sip.translator.rag_adapter import RagAdapter
@@ -35,6 +34,7 @@ def _make_plan(
     preferred_binding: BindingType,
     scopes: list[str] | None = None,
     parameters: dict | None = None,
+    trust_level: TrustLevel = TrustLevel.INTERNAL,
 ):
     registry = build_seeded_registry()
     matcher = CapabilityMatcher(registry)
@@ -45,7 +45,7 @@ def _make_plan(
             actor_id="adapter-test",
             actor_type=ActorType.SERVICE,
             name="Adapter Test",
-            trust_level=TrustLevel.INTERNAL,
+            trust_level=trust_level,
             scopes=scopes or ["sip:knowledge:read"],
         ),
         target=TargetDescriptor(target_type=TargetType.CAPABILITY),
@@ -236,3 +236,157 @@ class TestRagAdapter:
 
     def test_binding_type_is_rag(self) -> None:
         assert RagAdapter().binding_type == BindingType.RAG
+
+    def test_rag_raises_when_no_query_param(self) -> None:
+        """RAG adapter must refuse to produce a vague query — determinism principle."""
+        from uuid import uuid4
+
+        from sip.negotiation.planner import ExecutionPlan, ExecutionStep, TraceMetadata
+        from sip.registry.bootstrap import build_seeded_registry
+
+        registry = build_seeded_registry()
+        cap = registry.get_by_id("search_knowledge_base")
+        assert cap is not None
+
+        plan = ExecutionPlan(
+            intent_id=str(uuid4()),
+            selected_capability=cap,
+            selected_binding=BindingType.RAG,
+            deterministic_target={
+                "capability_id": cap.capability_id,
+                "provider_id": cap.provider.provider_id,
+                "binding_type": "rag",
+                "endpoint": None,
+            },
+            grounded_parameters={},  # deliberately empty — no query
+            execution_steps=[
+                ExecutionStep(
+                    step_index=0,
+                    step_name="invoke_search",
+                    description="test",
+                    capability_id=cap.capability_id,
+                    binding=BindingType.RAG,
+                    parameters={},
+                )
+            ],
+            trace=TraceMetadata(
+                trace_id=str(uuid4()),
+                span_id=str(uuid4()),
+                intent_id=str(uuid4()),
+            ),
+        )
+        adapter = RagAdapter()
+        with pytest.raises(ValueError, match="deterministic retrieval query"):
+            adapter.translate(plan)
+
+    def test_rag_uses_text_param_fallback(self) -> None:
+        # retrieve_document has no required fields, so 'text' param will be used
+        plan = _make_plan(
+            "retrieve_document", "knowledge_management",
+            OperationClass.RETRIEVE, BindingType.RAG,
+            parameters={"text": "design patterns"},
+        )
+        adapter = RagAdapter()
+        result = adapter.translate(plan)
+        assert result.payload["retrieval_query"] == "design patterns"
+
+    def test_rag_trace_present(self) -> None:
+        plan = _make_plan(
+            "search_knowledge_base", "knowledge_management",
+            OperationClass.RETRIEVE, BindingType.RAG,
+            parameters={"query": "test"},
+        )
+        adapter = RagAdapter()
+        result = adapter.translate(plan)
+        assert "trace" in result.payload
+        assert "trace_id" in result.payload["trace"]
+        assert "intent_id" in result.payload["trace"]
+
+
+class TestGrpcAdapterExtended:
+    def test_service_name_is_namespaced(self) -> None:
+        """gRPC service name must be of the form sip.<provider>.<Service>Service."""
+        plan = _make_plan(
+            "diagnose_network_issue", "network_operations",
+            OperationClass.ANALYZE, BindingType.GRPC,
+            scopes=["sip:network:read"],
+        )
+        adapter = GrpcAdapter()
+        result = adapter.translate(plan)
+        service = result.payload["service_name"]
+        assert service.startswith("sip.")
+        assert service.endswith("Service")
+
+    def test_method_name_is_pascal_case(self) -> None:
+        plan = _make_plan(
+            "diagnose_network_issue", "network_operations",
+            OperationClass.ANALYZE, BindingType.GRPC,
+            scopes=["sip:network:read"],
+        )
+        adapter = GrpcAdapter()
+        result = adapter.translate(plan)
+        method = result.payload["method_name"]
+        assert method[0].isupper(), f"Expected PascalCase method, got '{method}'"
+        assert "_" not in method
+
+    def test_grpc_metadata_contains_trace_ids(self) -> None:
+        plan = _make_plan(
+            "diagnose_network_issue", "network_operations",
+            OperationClass.ANALYZE, BindingType.GRPC,
+            scopes=["sip:network:read"],
+        )
+        adapter = GrpcAdapter()
+        result = adapter.translate(plan)
+        metadata_keys = [k for k, _ in result.payload["grpc_metadata"]]
+        assert "x-sip-trace-id" in metadata_keys
+        assert "x-sip-span-id" in metadata_keys
+        assert "x-sip-intent-id" in metadata_keys
+
+    def test_request_message_contains_parameters(self) -> None:
+        plan = _make_plan(
+            "diagnose_network_issue", "network_operations",
+            OperationClass.ANALYZE, BindingType.GRPC,
+            scopes=["sip:network:read"],
+            parameters={"target_ip": "192.168.1.1"},
+        )
+        adapter = GrpcAdapter()
+        result = adapter.translate(plan)
+        assert result.payload["request_message"]["target_ip"] == "192.168.1.1"
+
+
+class TestA2aAdapterExtended:
+    def test_delegation_context_has_trace_ids(self) -> None:
+        plan = _make_plan(
+            "delegate_agent_task", "agent_orchestration",
+            OperationClass.DELEGATE, BindingType.A2A,
+            scopes=["sip:agent:delegate"],
+            trust_level=TrustLevel.PRIVILEGED,
+        )
+        adapter = A2aAdapter()
+        result = adapter.translate(plan)
+        ctx = result.payload["delegation_context"]
+        assert "trace_id" in ctx
+        assert "intent_id" in ctx
+        assert "delegating_plan_id" in ctx
+
+    def test_task_payload_has_capability_id(self) -> None:
+        plan = _make_plan(
+            "delegate_agent_task", "agent_orchestration",
+            OperationClass.DELEGATE, BindingType.A2A,
+            scopes=["sip:agent:delegate"],
+            trust_level=TrustLevel.PRIVILEGED,
+        )
+        adapter = A2aAdapter()
+        result = adapter.translate(plan)
+        assert "capability_id" in result.payload["task_payload"]
+
+    def test_agent_task_type_matches_capability(self) -> None:
+        plan = _make_plan(
+            "delegate_agent_task", "agent_orchestration",
+            OperationClass.DELEGATE, BindingType.A2A,
+            scopes=["sip:agent:delegate"],
+            trust_level=TrustLevel.PRIVILEGED,
+        )
+        adapter = A2aAdapter()
+        result = adapter.translate(plan)
+        assert result.payload["agent_task_type"] == plan.selected_capability.capability_id

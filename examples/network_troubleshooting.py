@@ -10,8 +10,8 @@ Run with:
 from __future__ import annotations
 
 import json
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -84,21 +84,21 @@ def main() -> None:
         ],
     )
 
-    print(f"\n[Intent]")
+    print("\n[Intent]")
     print(f"  Name:   {envelope.intent.intent_name}")
     print(f"  Hint:   {envelope.intent.natural_language_hint}")
     print(f"  Params: {json.dumps(envelope.intent.parameters, indent=4)}")
 
     result, translation = broker.translate(envelope)
 
-    print(f"\n[Negotiation]")
+    print("\n[Negotiation]")
     if result.negotiation_result and result.negotiation_result.selected_capability:
         nr = result.negotiation_result
         print(f"  Selected:   {nr.selected_capability.capability_id}")
         print(f"  Binding:    {nr.selected_binding}")
         print(f"  Candidates: {[c.capability.capability_id for c in nr.ranked_candidates[:3]]}")
 
-    print(f"\n[Policy]")
+    print("\n[Policy]")
     if result.negotiation_result:
         pd = result.negotiation_result.policy_decision
         print(f"  Allowed:           {pd.allowed}")
@@ -106,7 +106,7 @@ def main() -> None:
         for note in pd.policy_notes:
             print(f"  Note: {note}")
 
-    print(f"\n[Execution Plan]")
+    print("\n[Execution Plan]")
     if result.execution_plan:
         plan = result.execution_plan
         print(f"  Plan ID:    {plan.plan_id}")
@@ -118,7 +118,7 @@ def main() -> None:
         print(f"\n[Translation ({translation.binding_type.value})]")
         print(json.dumps(translation.payload, indent=2, default=str))
 
-    print(f"\n[Audit Record]")
+    print("\n[Audit Record]")
     ar = result.audit_record
     print(f"  Outcome:  {ar.outcome_summary}")
     print(f"  Action:   {ar.action_taken}")

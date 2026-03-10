@@ -5,7 +5,7 @@ from __future__ import annotations
 from sip.envelope.models import (
     ActorDescriptor,
     ActorType,
-    BindingType,
+    Constraints,
     DataSensitivity,
     DesiredOutcome,
     IntentEnvelope,
@@ -14,7 +14,6 @@ from sip.envelope.models import (
     TargetDescriptor,
     TargetType,
     TrustLevel,
-    Constraints,
 )
 from sip.negotiation.matcher import CapabilityMatcher
 from sip.policy.engine import PolicyEngine
@@ -164,3 +163,76 @@ class TestScopeChecking:
     def test_empty_granted_scopes(self) -> None:
         missing = check_scopes(["sip:read"], [])
         assert "sip:read" in missing
+
+
+class TestScopeHierarchy:
+    """Admin scope must implicitly grant all sub-scopes."""
+
+    def setup_method(self) -> None:
+        self.registry = build_seeded_registry()
+        self.matcher = CapabilityMatcher(self.registry)
+        self.engine = PolicyEngine(enforce_approval_policy=True)
+
+    def test_admin_scope_grants_knowledge_read(self) -> None:
+        """Actor with sip:admin should be allowed to retrieve_document."""
+        envelope = _make_envelope(
+            "retrieve_document",
+            "knowledge_management",
+            scopes=["sip:admin"],  # admin, not sip:knowledge:read
+        )
+        negotiation = self.matcher.match(envelope)
+        result = self.engine.evaluate(envelope, negotiation)
+        assert result.policy_decision.allowed is True
+        assert result.policy_decision.denied_scopes == []
+
+    def test_admin_scope_grants_booking_write(self) -> None:
+        envelope = _make_envelope(
+            "reserve_table",
+            "booking",
+            operation_class=OperationClass.WRITE,
+            scopes=["sip:admin"],
+        )
+        negotiation = self.matcher.match(envelope)
+        result = self.engine.evaluate(envelope, negotiation)
+        assert result.policy_decision.allowed is True
+
+    def test_missing_scope_without_admin_still_denied(self) -> None:
+        envelope = _make_envelope(
+            "retrieve_document",
+            "knowledge_management",
+            scopes=["sip:network:read"],  # wrong scope, no admin
+        )
+        negotiation = self.matcher.match(envelope)
+        result = self.engine.evaluate(envelope, negotiation)
+        assert result.policy_decision.allowed is False
+        assert "sip:knowledge:read" in result.policy_decision.denied_scopes
+
+
+class TestRiskDenialCombinations:
+    """Policy must deny CRITICAL risk combined with CONFIDENTIAL or RESTRICTED data."""
+
+    def setup_method(self) -> None:
+        from sip.policy.risk import is_denied_by_risk
+        from sip.registry.models import RiskLevel
+        self.is_denied_by_risk = is_denied_by_risk
+        self.RiskLevel = RiskLevel
+
+    def test_critical_restricted_is_denied(self) -> None:
+        assert self.is_denied_by_risk(
+            self.RiskLevel.CRITICAL, DataSensitivity.RESTRICTED
+        ) is True
+
+    def test_critical_confidential_is_denied(self) -> None:
+        assert self.is_denied_by_risk(
+            self.RiskLevel.CRITICAL, DataSensitivity.CONFIDENTIAL
+        ) is True
+
+    def test_critical_internal_is_not_denied(self) -> None:
+        assert self.is_denied_by_risk(
+            self.RiskLevel.CRITICAL, DataSensitivity.INTERNAL
+        ) is False
+
+    def test_high_restricted_is_not_denied(self) -> None:
+        assert self.is_denied_by_risk(
+            self.RiskLevel.HIGH, DataSensitivity.RESTRICTED
+        ) is False

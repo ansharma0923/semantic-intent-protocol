@@ -23,6 +23,7 @@ _APPROVAL_REQUIRED_COMBINATIONS: set[tuple[RiskLevel, OperationClass]] = {
 # Combinations that are always denied
 _DENIED_COMBINATIONS: set[tuple[RiskLevel, DataSensitivity]] = {
     (RiskLevel.CRITICAL, DataSensitivity.RESTRICTED),
+    (RiskLevel.CRITICAL, DataSensitivity.CONFIDENTIAL),
 }
 
 

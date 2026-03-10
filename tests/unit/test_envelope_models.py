@@ -10,7 +10,6 @@ from sip.envelope.models import (
     ActorType,
     BindingType,
     Constraints,
-    ContextBlock,
     DataSensitivity,
     DesiredOutcome,
     DeterminismLevel,

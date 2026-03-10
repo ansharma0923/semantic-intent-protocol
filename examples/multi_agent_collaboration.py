@@ -11,8 +11,8 @@ Run with:
 from __future__ import annotations
 
 import json
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -175,7 +175,7 @@ def main() -> None:
     print(f"  Step 1 Capability: {result1.audit_record.selected_capability_id}")
     print(f"  Step 2 Capability: {result2.audit_record.selected_capability_id}")
     print(f"  Audit Log Entries: {len(broker.audit_log)}")
-    print(f"  All Deterministic: True (no LLM calls)")
+    print("  All Deterministic: True (no LLM calls)")
     print()
 
 

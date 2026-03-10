@@ -92,13 +92,26 @@ class RagAdapter(BaseAdapter):
 
     @staticmethod
     def _build_retrieval_query(params: dict[str, Any]) -> str:
-        """Build a retrieval query string from parameters."""
+        """Build a retrieval query string from parameters.
+
+        Raises:
+            ValueError: If no recognizable query parameter is present.
+                A RAG retrieval must have an explicit query to remain
+                deterministic; silently producing a vague query violates
+                the SIP determinism principle.
+        """
         if "query" in params:
             return str(params["query"])
         if "text" in params:
             return str(params["text"])
         if "topic" in params:
             return str(params["topic"])
-        # Fallback: join all string-valued parameters
+        # Collect all string values as a last resort
         parts = [str(v) for v in params.values() if isinstance(v, str)]
-        return " ".join(parts) if parts else "general retrieval"
+        if parts:
+            return " ".join(parts)
+        raise ValueError(
+            "RAG adapter requires at least one of 'query', 'text', or 'topic' "
+            "parameters to produce a deterministic retrieval query. "
+            "Refusing to produce a vague fallback query."
+        )

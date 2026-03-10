@@ -6,13 +6,13 @@ before execution proceeds.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class ApprovalState(str, Enum):
+class ApprovalState(StrEnum):
     """State of a human approval request."""
 
     PENDING = "pending"
@@ -28,7 +28,7 @@ class ApprovalRecord(BaseModel):
     plan_id: str = Field(description="The execution plan requiring approval.")
     state: ApprovalState = Field(description="Current approval state.")
     requested_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="When approval was requested.",
     )
     decided_at: datetime | None = Field(
@@ -44,23 +44,23 @@ class ApprovalRecord(BaseModel):
         description="Notes from the approver.",
     )
 
-    def approve(self, approver_id: str, notes: str = "") -> "ApprovalRecord":
+    def approve(self, approver_id: str, notes: str = "") -> ApprovalRecord:
         """Return a new record with approved state."""
         return self.model_copy(
             update={
                 "state": ApprovalState.APPROVED,
-                "decided_at": datetime.now(timezone.utc),
+                "decided_at": datetime.now(UTC),
                 "approver_id": approver_id,
                 "notes": notes,
             }
         )
 
-    def deny(self, approver_id: str, notes: str = "") -> "ApprovalRecord":
+    def deny(self, approver_id: str, notes: str = "") -> ApprovalRecord:
         """Return a new record with denied state."""
         return self.model_copy(
             update={
                 "state": ApprovalState.DENIED,
-                "decided_at": datetime.now(timezone.utc),
+                "decided_at": datetime.now(UTC),
                 "approver_id": approver_id,
                 "notes": notes,
             }

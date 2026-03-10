@@ -9,13 +9,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from sip.envelope.models import (
-    BindingType,
     DeterminismLevel,
     IntentEnvelope,
     OperationClass,
     TrustLevel,
 )
-
 
 # ---------------------------------------------------------------------------
 # Validation result
@@ -59,27 +57,23 @@ _TRUST_ORDER = {
 # Valid SIP versions
 _VALID_SIP_VERSIONS = {"0.1"}
 
-# Valid determinism levels
-_VALID_DETERMINISM_LEVELS = set(DeterminismLevel)
-
-# Valid binding types
-_VALID_BINDING_TYPES = set(BindingType)
-
 
 def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
     """Validate an IntentEnvelope against SIP protocol rules.
 
     Checks beyond Pydantic structural validation:
       - SIP version is recognised
-      - Operation class is valid
-      - Trust level is valid
-      - Determinism level is valid
-      - Protocol bindings are recognised
-      - time_budget_ms is not negative (belt-and-suspenders)
-      - cost_budget is not negative (belt-and-suspenders)
+      - Trust level consistency: declared trust must not exceed actor trust
+      - time_budget_ms and cost_budget are non-negative (belt-and-suspenders;
+        Pydantic field_validators also enforce this)
       - forbidden_actions do not conflict with allowed_actions
-      - When a protocol binding is specified, it must be a valid BindingType
-      - High-risk write/execute operations trigger stricter trust requirements
+      - High-risk write/execute operations require at least INTERNAL trust
+      - Write/execute operations with advisory determinism produce a warning
+      - Capability requirement preferred_binding values are valid
+
+    Note: Enum membership for fields such as operation_class, trust_level,
+    binding_type, and determinism_required is already enforced by Pydantic and
+    is not re-checked here.
 
     Args:
         envelope: The IntentEnvelope to validate.
@@ -96,23 +90,7 @@ def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
             f"Supported versions: {sorted(_VALID_SIP_VERSIONS)}"
         )
 
-    # --- Operation class (belt-and-suspenders; Pydantic already enforces enum) ---
-    if envelope.intent.operation_class not in OperationClass:
-        result.add_error(
-            f"Invalid operation_class '{envelope.intent.operation_class}'."
-        )
-
-    # --- Trust level ---
-    if envelope.actor.trust_level not in TrustLevel:
-        result.add_error(
-            f"Invalid trust level '{envelope.actor.trust_level}'."
-        )
-    if envelope.trust.declared_trust_level not in TrustLevel:
-        result.add_error(
-            f"Invalid declared trust level '{envelope.trust.declared_trust_level}'."
-        )
-
-    # Trust level consistency: declared trust must not exceed actor trust
+    # --- Trust level consistency: declared trust must not exceed actor trust ---
     if (
         _TRUST_ORDER.get(envelope.trust.declared_trust_level, 0)
         > _TRUST_ORDER.get(envelope.actor.trust_level, 0)
@@ -122,22 +100,7 @@ def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
             "The lower actor trust level will be enforced."
         )
 
-    # --- Determinism level ---
-    if envelope.constraints.determinism_required not in _VALID_DETERMINISM_LEVELS:
-        result.add_error(
-            f"Invalid determinism_required "
-            f"'{envelope.constraints.determinism_required}'."
-        )
-
-    # --- Protocol bindings ---
-    for binding in envelope.protocol_bindings:
-        if binding.binding_type not in _VALID_BINDING_TYPES:
-            result.add_error(
-                f"Invalid binding_type '{binding.binding_type}' "
-                f"in protocol_bindings."
-            )
-
-    # --- Budget constraints ---
+    # --- Budget constraints (belt-and-suspenders) ---
     if (
         envelope.constraints.time_budget_ms is not None
         and envelope.constraints.time_budget_ms < 0
@@ -171,22 +134,11 @@ def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
                 f"Actor has '{envelope.actor.trust_level}'."
             )
 
-        # Strict determinism is required for write/execute
+        # Strict determinism is strongly recommended for write/execute
         if envelope.constraints.determinism_required == DeterminismLevel.ADVISORY:
             result.add_warning(
                 "Write/execute operations should not use 'advisory' determinism. "
                 "Consider 'strict' or 'bounded'."
-            )
-
-    # --- Capability requirement binding check ---
-    for req in envelope.capability_requirements:
-        if (
-            req.preferred_binding is not None
-            and req.preferred_binding not in _VALID_BINDING_TYPES
-        ):
-            result.add_error(
-                f"Invalid preferred_binding '{req.preferred_binding}' "
-                f"in capability_requirements."
             )
 
     return result

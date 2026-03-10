@@ -8,6 +8,7 @@ from sip.envelope.models import (
     BindingType,
     Constraints,
     DataSensitivity,
+    DesiredOutcome,
     DeterminismLevel,
     IntentEnvelope,
     IntentPayload,
@@ -18,7 +19,6 @@ from sip.envelope.models import (
     TrustLevel,
 )
 from sip.envelope.validator import ValidationResult, validate_envelope
-from sip.envelope.models import DesiredOutcome
 
 
 def _make_envelope(
@@ -146,3 +146,38 @@ class TestEnvelopeValidator:
         result.add_warning("Something is suspicious")
         assert result.valid is True
         assert "Something is suspicious" in result.warnings
+
+
+class TestValidatorCleanup:
+    """Ensure removed dead checks are truly gone and remaining checks still work."""
+
+    def test_unsupported_sip_version_fails(self) -> None:
+        """Version check must still detect unknown versions."""
+        envelope = _make_envelope()
+        # model_copy to override the frozen field
+        bad_version_envelope = envelope.model_copy(update={"sip_version": "99.0"})
+        result = validate_envelope(bad_version_envelope)
+        assert result.valid is False
+        assert any("sip_version" in e or "Unsupported" in e for e in result.errors)
+
+    def test_declared_trust_exceeds_actor_trust_is_warning(self) -> None:
+        """Declared trust > actor trust must generate a warning, not an error."""
+        from sip.envelope.models import TrustBlock
+        envelope = _make_envelope(trust_level=TrustLevel.INTERNAL)
+        # admin declared but actor is only internal
+        envelope_elevated = envelope.model_copy(
+            update={"trust": TrustBlock(declared_trust_level=TrustLevel.ADMIN)}
+        )
+        result = validate_envelope(envelope_elevated)
+        assert result.valid is True
+        assert len(result.warnings) > 0
+        assert any("declared_trust_level" in w for w in result.warnings)
+
+    def test_action_conflict_detected(self) -> None:
+        envelope = _make_envelope(
+            allowed_actions=["action_x", "action_y"],
+            forbidden_actions=["action_y"],
+        )
+        result = validate_envelope(envelope)
+        assert result.valid is False
+        assert any("action_y" in e for e in result.errors)

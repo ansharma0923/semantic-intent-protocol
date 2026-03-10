@@ -165,7 +165,7 @@ class CapabilityMatcher:
                 allowed_bindings = list(selected_capability.supported_bindings)
 
         policy_decision = PolicyDecisionSummary(
-            allowed=not requires_clarification or len(ranked_candidates) > 0,
+            allowed=True,  # Preliminary; will be fully evaluated by the policy engine
             requires_approval=False,  # Will be enriched by the policy engine
             policy_notes=[],
         )

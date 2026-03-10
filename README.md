@@ -180,6 +180,10 @@ pytest tests/functional/ -v
 
 151 tests, 0 failures in the v0.1 reference implementation.
 
+> After review and improvements, the test suite was expanded to **174 tests** covering
+> additional adapter behavior, scope hierarchy, risk denial combinations, and planner
+> policy check accuracy.
+
 ---
 
 ## Documentation
@@ -200,14 +204,16 @@ pytest tests/functional/ -v
 ### v0.1 (current)
 - IntentEnvelope with full nested model
 - CapabilityDescriptor with rich metadata
-- In-memory capability registry
-- Deterministic capability matching and ranking
-- Policy engine (scopes, risk, delegation, sensitivity)
-- Execution planner
+- In-memory capability registry with deterministic ranked matching
+- Policy engine (scopes, risk, delegation, sensitivity) — entirely rule-based, no LLM
+  - `sip:admin` scope implicitly grants all sub-scopes
+  - `CRITICAL` risk + `CONFIDENTIAL` or `RESTRICTED` data is always denied
+- Execution planner with accurate policy-check recording
 - REST, gRPC, MCP, A2A, RAG adapters
-- BrokerService with full pipeline
+  - RAG adapter raises on empty query instead of producing vague fallback
+- BrokerService with full pipeline (no redundant internal aliases)
 - Audit records and structured logging
-- 151 unit and functional tests
+- 174 unit and functional tests
 - 4 runnable example workflows
 - Optional FastAPI broker API
 

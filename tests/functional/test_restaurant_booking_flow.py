@@ -26,7 +26,7 @@ from sip.envelope.models import (
     TargetType,
     TrustLevel,
 )
-from sip.observability.audit import ActionTaken, OutcomeSummary
+from sip.observability.audit import OutcomeSummary
 
 
 def make_restaurant_booking_envelope() -> IntentEnvelope:

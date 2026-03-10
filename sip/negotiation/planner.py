@@ -16,7 +16,6 @@ from sip.envelope.models import BindingType, IntentEnvelope
 from sip.negotiation.results import NegotiationResult
 from sip.registry.models import CapabilityDescriptor
 
-
 # ---------------------------------------------------------------------------
 # Execution plan models
 # ---------------------------------------------------------------------------
@@ -201,21 +200,39 @@ class ExecutionPlanner:
             )
         ]
 
+        from sip.registry.service import _TRUST_ORDER  # noqa: PLC0415
+
+        trust_ok = (
+            _TRUST_ORDER.get(envelope.actor.trust_level, 0)
+            >= _TRUST_ORDER.get(cap.minimum_trust_tier, 0)
+        )
+        opclass_match = cap.operation_class == envelope.intent.operation_class
+
         policy_checks: list[PolicyCheckRecord] = [
             PolicyCheckRecord(
                 check_name="trust_level",
-                result="passed",
+                result="passed" if trust_ok else "warning",
                 notes=(
                     f"Actor trust '{envelope.actor.trust_level}' meets "
                     f"capability minimum '{cap.minimum_trust_tier}'."
+                    if trust_ok
+                    else (
+                        f"Actor trust '{envelope.actor.trust_level}' is below "
+                        f"capability minimum '{cap.minimum_trust_tier}'."
+                    )
                 ),
             ),
             PolicyCheckRecord(
                 check_name="operation_class_match",
-                result="passed",
+                result="passed" if opclass_match else "warning",
                 notes=(
                     f"Intent operation class '{envelope.intent.operation_class}' "
                     f"matches capability '{cap.operation_class}'."
+                    if opclass_match
+                    else (
+                        f"Intent operation class '{envelope.intent.operation_class}' "
+                        f"differs from capability '{cap.operation_class}'."
+                    )
                 ),
             ),
         ]

@@ -15,7 +15,6 @@ from sip.policy.scopes import (
     SCOPE_BOOKING_WRITE,
     SCOPE_CUSTOMER_READ,
     SCOPE_KNOWLEDGE_READ,
-    SCOPE_NETWORK_EXECUTE,
     SCOPE_NETWORK_READ,
 )
 from sip.registry.models import (

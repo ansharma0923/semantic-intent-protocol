@@ -7,14 +7,14 @@ are the primary audit trail for SIP.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 
-class ActionTaken(str, Enum):
+class ActionTaken(StrEnum):
     """What action was taken after negotiation and policy evaluation."""
 
     PLAN_CREATED = "plan_created"
@@ -25,7 +25,7 @@ class ActionTaken(str, Enum):
     VALIDATION_FAILED = "validation_failed"
 
 
-class OutcomeSummary(str, Enum):
+class OutcomeSummary(StrEnum):
     """High-level outcome of processing the intent."""
 
     SUCCESS = "success"
@@ -48,7 +48,7 @@ class AuditRecord(BaseModel):
         description="Unique audit record identifier.",
     )
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="When this audit record was created.",
     )
     trace_id: str = Field(description="Distributed trace identifier.")

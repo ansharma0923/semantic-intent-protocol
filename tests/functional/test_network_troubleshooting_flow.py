@@ -132,7 +132,6 @@ class TestNetworkTroubleshootingFlow:
 
     def test_flow_grpc_translation_has_correct_structure(self, broker: BrokerService) -> None:
         """When gRPC is selected, the translated payload has required fields."""
-        from sip.translator.grpc_adapter import GrpcAdapter
 
         envelope = make_network_troubleshooting_envelope()
         result, translation = broker.translate(envelope)

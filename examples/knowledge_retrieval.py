@@ -10,8 +10,8 @@ Run with:
 from __future__ import annotations
 
 import json
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -31,8 +31,6 @@ from sip.envelope.models import (
 )
 from sip.registry.bootstrap import seed_registry
 from sip.registry.service import CapabilityRegistryService
-from sip.translator.rag_adapter import RagAdapter
-from sip.translator.rest_adapter import RestAdapter
 
 
 def main() -> None:
@@ -79,7 +77,7 @@ def main() -> None:
         ],
     )
 
-    print(f"\n[Intent]")
+    print("\n[Intent]")
     print(f"  ID:      {envelope.intent_id}")
     print(f"  Name:    {envelope.intent.intent_name}")
     print(f"  Domain:  {envelope.intent.intent_domain}")
@@ -88,7 +86,7 @@ def main() -> None:
     # --- Process through the broker ---
     result, translation = broker.translate(envelope)
 
-    print(f"\n[Negotiation]")
+    print("\n[Negotiation]")
     if result.negotiation_result:
         nr = result.negotiation_result
         if nr.selected_capability:
@@ -97,7 +95,7 @@ def main() -> None:
             print(f"  Rationale: {nr.selection_rationale}")
         print(f"  Candidates: {[c.capability.capability_id for c in nr.ranked_candidates[:3]]}")
 
-    print(f"\n[Policy]")
+    print("\n[Policy]")
     if result.negotiation_result:
         pd = result.negotiation_result.policy_decision
         print(f"  Allowed:          {pd.allowed}")
@@ -105,7 +103,7 @@ def main() -> None:
         for note in pd.policy_notes:
             print(f"  Note: {note}")
 
-    print(f"\n[Execution Plan]")
+    print("\n[Execution Plan]")
     if result.execution_plan:
         plan = result.execution_plan
         print(f"  Plan ID:    {plan.plan_id}")
@@ -118,7 +116,7 @@ def main() -> None:
     if translation:
         print(json.dumps(translation.payload, indent=2))
 
-    print(f"\n[Audit Record]")
+    print("\n[Audit Record]")
     ar = result.audit_record
     print(f"  Outcome:    {ar.outcome_summary}")
     print(f"  Action:     {ar.action_taken}")

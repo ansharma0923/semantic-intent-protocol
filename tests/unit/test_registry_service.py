@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from sip.envelope.models import BindingType, OperationClass, TrustLevel
 from sip.registry.bootstrap import build_seeded_registry, seed_registry
 from sip.registry.models import (

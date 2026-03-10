@@ -6,20 +6,19 @@ discovered, and invoked through the SIP protocol.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from sip.envelope.models import BindingType, OperationClass, TrustLevel
 
-
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
 
 
-class RiskLevel(str, Enum):
+class RiskLevel(StrEnum):
     """Risk level associated with invoking this capability."""
 
     LOW = "low"

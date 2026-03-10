@@ -15,7 +15,6 @@ over HTTP when needed. The FastAPI app is optional and can be omitted.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -53,7 +52,7 @@ class BrokerService:
     audit_log: list[AuditRecord] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        self._matcher = CapabilityMatcher(self._registry)
+        self._matcher = CapabilityMatcher(self.registry)
         self._planner = ExecutionPlanner()
         self._adapters: dict[str, BaseAdapter] = {
             "rest": RestAdapter(),
@@ -62,10 +61,6 @@ class BrokerService:
             "a2a": A2aAdapter(),
             "rag": RagAdapter(),
         }
-
-    @property
-    def _registry(self) -> CapabilityRegistryService:
-        return self.registry
 
     def handle(self, envelope: IntentEnvelope) -> BrokerResult:
         """Process an IntentEnvelope through the full SIP pipeline.

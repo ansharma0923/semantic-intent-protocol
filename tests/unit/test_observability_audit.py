@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import UTC
 
 from sip.observability.audit import (
     ActionTaken,
-    AuditRecord,
     OutcomeSummary,
     create_audit_record,
 )
@@ -50,7 +49,7 @@ class TestAuditRecord:
             outcome_summary=OutcomeSummary.ERROR,
         )
         assert record.timestamp is not None
-        assert record.timestamp.tzinfo == timezone.utc
+        assert record.timestamp.tzinfo == UTC
 
     def test_audit_record_is_frozen(self) -> None:
         import pytest
