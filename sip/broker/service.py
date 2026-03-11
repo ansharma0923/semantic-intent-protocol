@@ -121,50 +121,186 @@ class BrokerService:
 # ---------------------------------------------------------------------------
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
+
+    from sip.broker.identity import map_identity_headers
+    from sip.observability.audit import OutcomeSummary
 
     app = FastAPI(
         title="SIP Broker API",
-        description="Semantic Intent Protocol – minimal broker HTTP API",
+        description=(
+            "Semantic Intent Protocol – broker HTTP API (v0.1).\n\n"
+            "The HTTP API is one transport surface for SIP; it is not the protocol "
+            "definition itself.  All SIP semantics, policy evaluation, provenance "
+            "tracking, and audit behaviour are identical regardless of transport."
+        ),
         version="0.1.0",
     )
 
     # Module-level broker instance for the API
     _broker = BrokerService()
 
-    @app.post("/intents", summary="Submit an intent for processing")
-    async def submit_intent(envelope_data: dict[str, Any]) -> JSONResponse:
-        """Accept an IntentEnvelope as JSON and process it through the broker."""
-        try:
-            envelope = IntentEnvelope.model_validate(envelope_data)
-        except Exception as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # ------------------------------------------------------------------
+    # Health endpoint
+    # ------------------------------------------------------------------
 
-        result = _broker.handle(envelope)
+    @app.get("/healthz", summary="Health check", tags=["meta"])
+    async def healthz() -> JSONResponse:
+        """Return a simple liveness response with capability count."""
         return JSONResponse(
             content={
-                "intent_id": result.audit_record.intent_id,
-                "outcome": result.audit_record.outcome_summary,
-                "action_taken": result.audit_record.action_taken,
-                "policy_allowed": result.audit_record.policy_allowed,
-                "approval_required": (
-                    result.execution_plan.approval_required
-                    if result.execution_plan
-                    else False
-                ),
-                "plan_id": (
-                    result.execution_plan.plan_id if result.execution_plan else None
-                ),
-                "requires_clarification": (
-                    result.negotiation_result.requires_clarification
-                    if result.negotiation_result
-                    else True
-                ),
+                "status": "ok",
+                "version": "0.1.0",
+                "capabilities": _broker.registry.count(),
             }
         )
 
-    @app.get("/capabilities", summary="List registered capabilities")
+    # ------------------------------------------------------------------
+    # Intent submission endpoint
+    # ------------------------------------------------------------------
+
+    @app.post(
+        "/sip/intents",
+        summary="Submit an intent envelope for processing",
+        tags=["intents"],
+    )
+    async def submit_intent(request: Request) -> JSONResponse:
+        """Accept an IntentEnvelope as JSON and process it through the broker.
+
+        **Request body:** a JSON-serialised ``IntentEnvelope``.
+
+        **External identity headers (optional, requires trusted deployment):**
+
+        When ``SIP_TRUSTED_IDENTITY_HEADERS=true`` the broker will read the
+        following headers and use them to override the actor fields in the
+        request body:
+
+        * ``X-Actor-Id``    – actor identifier
+        * ``X-Actor-Type``  – actor type (human / ai_agent / service / system)
+        * ``X-Actor-Name``  – human-readable actor name
+        * ``X-Trust-Level`` – trust level (public / internal / privileged / admin)
+        * ``X-Scopes``      – comma-separated list of scopes
+
+        **Response status codes:**
+
+        * ``200`` – successfully processed, plan created
+        * ``202`` – processed, but approval required before execution
+        * ``400`` – envelope validation failed
+        * ``403`` – policy denied
+        * ``422`` – malformed request body (cannot parse as IntentEnvelope)
+        * ``500`` – unexpected internal error
+        """
+        # --- Parse body ---
+        try:
+            body = await request.json()
+        except Exception as exc:
+            return JSONResponse(
+                status_code=422,
+                content={"error": "malformed_request", "detail": str(exc)},
+            )
+
+        # --- Validate envelope ---
+        try:
+            envelope = IntentEnvelope.model_validate(body)
+        except Exception as exc:
+            return JSONResponse(
+                status_code=422,
+                content={"error": "invalid_envelope", "detail": str(exc)},
+            )
+
+        # --- Apply external identity headers (if trusted mapping is enabled) ---
+        headers = dict(request.headers)
+        updated_actor = map_identity_headers(envelope.actor, headers)
+        if updated_actor is not envelope.actor:
+            envelope = envelope.model_copy(update={"actor": updated_actor})
+
+        # --- Process through broker pipeline ---
+        try:
+            result = _broker.handle(envelope)
+        except Exception as exc:
+            logger.exception("Unexpected error processing intent %s", envelope.intent_id)
+            return JSONResponse(
+                status_code=500,
+                content={"error": "internal_error", "detail": str(exc)},
+            )
+
+        # --- Build structured response ---
+        audit = result.audit_record
+        plan = result.execution_plan
+
+        response_body: dict[str, Any] = {
+            "intent_id": audit.intent_id,
+            "outcome": audit.outcome_summary,
+            "action_taken": audit.action_taken,
+            "policy_allowed": audit.policy_allowed,
+            "approval_required": plan.approval_required if plan else False,
+            "plan_id": plan.plan_id if plan else None,
+            "requires_clarification": (
+                result.negotiation_result.requires_clarification
+                if result.negotiation_result
+                else True
+            ),
+            "policy_notes": (
+                result.negotiation_result.policy_decision.policy_notes
+                if result.negotiation_result and result.negotiation_result.policy_decision
+                else []
+            ),
+            "audit_record": {
+                "trace_id": audit.trace_id,
+                "intent_id": audit.intent_id,
+                "actor_id": audit.actor_id,
+                "actor_type": audit.actor_type,
+                "intent_name": audit.intent_name,
+                "intent_domain": audit.intent_domain,
+                "operation_class": audit.operation_class,
+                "selected_capability_id": audit.selected_capability_id,
+                "selected_binding": audit.selected_binding,
+                "action_taken": audit.action_taken,
+                "policy_allowed": audit.policy_allowed,
+                "outcome_summary": audit.outcome_summary,
+                "notes": audit.notes,
+                "timestamp": audit.timestamp.isoformat(),
+            },
+        }
+
+        # --- Determine HTTP status code ---
+        # Status code derivation:
+        #   - Validation failures (envelope could not be parsed/validated) → 400
+        #   - Policy denials (valid envelope, but authorization denied) → 403
+        #   - Approval required → 202
+        #   - Clarification needed or other errors without validation failures → 200
+        #     (clarification is a normal SIP negotiation outcome, not an error)
+        #   - All other success cases → 200
+        #
+        # Note: validation_errors is checked in multiple branches because an ERROR
+        # outcome can result from either envelope validation failure (400) or from
+        # a planning or pipeline failure (200/500 depending on context).
+        outcome = audit.outcome_summary
+        if outcome == OutcomeSummary.DENIED or not audit.policy_allowed:
+            # Distinguish envelope validation failure (400) from policy denial (403)
+            if result.validation_errors:
+                status_code = 400
+            else:
+                status_code = 403
+        elif outcome == OutcomeSummary.PENDING_APPROVAL:
+            status_code = 202
+        elif outcome in (OutcomeSummary.ERROR, OutcomeSummary.NEEDS_CLARIFICATION):
+            # ERROR with validation_errors → bad request; otherwise clarification is normal
+            if result.validation_errors:
+                status_code = 400
+            else:
+                status_code = 200  # NEEDS_CLARIFICATION is a normal SIP negotiation outcome
+        else:
+            status_code = 200
+
+        return JSONResponse(status_code=status_code, content=response_body)
+
+    # ------------------------------------------------------------------
+    # Capabilities listing endpoint
+    # ------------------------------------------------------------------
+
+    @app.get("/capabilities", summary="List registered capabilities", tags=["registry"])
     async def list_capabilities() -> JSONResponse:
         """Return all registered capabilities."""
         caps = _broker.registry.list_all()
@@ -180,10 +316,21 @@ try:
             ]
         )
 
-    @app.get("/health", summary="Health check")
+    # ------------------------------------------------------------------
+    # Legacy health alias (kept for backward compatibility)
+    # ------------------------------------------------------------------
+
+    @app.get("/health", summary="Health check (legacy alias)", tags=["meta"])
     async def health() -> JSONResponse:
-        return JSONResponse(content={"status": "ok", "capabilities": _broker.registry.count()})
+        """Legacy health alias – prefer /healthz."""
+        return JSONResponse(
+            content={
+                "status": "ok",
+                "capabilities": _broker.registry.count(),
+            }
+        )
 
 except ImportError:
     # FastAPI is optional — broker still works without it
     pass
+

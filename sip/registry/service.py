@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from sip.envelope.models import BindingType, OperationClass, TrustLevel
 from sip.registry.models import CapabilityDescriptor
-from sip.registry.storage import InMemoryCapabilityStore
+from sip.registry.storage import InMemoryCapabilityStore, JsonFileCapabilityStore
 
 # Trust level ordering used for compatibility checks
 _TRUST_ORDER = {
@@ -18,15 +18,22 @@ _TRUST_ORDER = {
     TrustLevel.ADMIN: 3,
 }
 
+# Union type for supported stores
+_CapabilityStore = InMemoryCapabilityStore | JsonFileCapabilityStore
+
 
 class CapabilityRegistryService:
     """High-level registry service for SIP capabilities.
 
     All matching is deterministic: based on intent name/domain, operation class,
     binding preference, and trust compatibility.
+
+    Args:
+        store: Optional storage backend.  Defaults to an ``InMemoryCapabilityStore``.
+               Pass a ``JsonFileCapabilityStore`` instance to enable persistence.
     """
 
-    def __init__(self, store: InMemoryCapabilityStore | None = None) -> None:
+    def __init__(self, store: _CapabilityStore | None = None) -> None:
         self._store = store or InMemoryCapabilityStore()
 
     # ------------------------------------------------------------------

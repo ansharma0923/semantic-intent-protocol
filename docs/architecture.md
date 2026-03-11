@@ -74,10 +74,11 @@ The SIP ecosystem defines the following roles:
 | Role | Description |
 |------|-------------|
 | **Actor** | The originator of an intent. May be a human user, an AI agent, or an automated service. Actors carry an identity, a trust level, and a set of granted scopes. |
-| **SIP Broker** | The central coordinator. Receives `IntentEnvelope` objects, orchestrates the processing pipeline, and returns an `ExecutionPlan` or a denial. |
+| **SIP Broker** | The central coordinator. Receives `IntentEnvelope` objects, orchestrates the processing pipeline, and returns an `ExecutionPlan` or a denial. Also exposes an HTTP API as one transport surface. |
 | **Capability Provider** | A system that can fulfill an intent. Providers register capabilities with the registry and are targeted by execution plans. |
-| **Capability Registry** | The authoritative store of available capabilities and their descriptors. Used during negotiation to discover and rank candidates. |
+| **Capability Registry** | The authoritative store of available capabilities and their descriptors. Used during negotiation to discover and rank candidates. Supports both in-memory and file-backed JSON persistence. |
 | **Execution System** | The external runtime that carries out the execution plan. May be a REST API, a gRPC service, an MCP tool host, an A2A agent, or a RAG pipeline. |
+| **Identity Gateway** | An optional external API gateway, reverse proxy, or service mesh that authenticates callers and injects trusted identity headers before requests reach the SIP broker. Authentication always occurs outside SIP. |
 
 ---
 
@@ -218,6 +219,11 @@ registration, retrieval by ID, and deterministic matching by intent name,
 domain, operation class, binding type, and trust level. The storage backend
 is replaceable.
 
+Two storage backends are provided out of the box:
+
+- **`InMemoryCapabilityStore`** – fast, ephemeral; suitable for development and testing.
+- **`JsonFileCapabilityStore`** – file-backed JSON persistence; capabilities are saved to disk and reloaded on startup.  The default file path is `data/capabilities.json`, configurable via the `SIP_CAPABILITIES_FILE` environment variable.  Bootstrap capabilities from seed data if no file exists yet.
+
 ### Negotiation Engine
 
 Queries the registry and ranks matching capabilities by a deterministic,
@@ -267,7 +273,55 @@ Adapters produce deterministic payloads. They do not perform execution.
 
 Orchestrates the full processing pipeline: envelope validation, capability
 negotiation, policy evaluation, execution planning, and audit record
-generation. Exposes an HTTP interface for integration with external systems.
+generation.
+
+The broker exposes an HTTP interface built with FastAPI:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/healthz` | Liveness / readiness check. Returns status and capability count. |
+| `POST` | `/sip/intents` | Submit an `IntentEnvelope` for processing. Returns a structured broker response. |
+| `GET`  | `/capabilities` | List all registered capabilities. |
+
+**HTTP status codes returned by `POST /sip/intents`:**
+
+| Code | Condition |
+|------|-----------|
+| `200` | Intent processed; execution plan created. |
+| `202` | Intent processed; approval required before execution. |
+| `400` | Envelope validation failed. |
+| `403` | Policy denied the intent. |
+| `422` | Malformed request body; cannot be parsed as an `IntentEnvelope`. |
+| `500` | Unexpected internal error. |
+
+The HTTP API is **one transport surface** for the SIP broker — it is not the
+protocol definition itself.  All SIP semantics, policy evaluation, provenance
+tracking, and audit behaviour are identical regardless of transport.
+
+### Identity Adapter
+
+The `sip.broker.identity` module provides optional external identity
+integration for the HTTP API.  When enabled (via `SIP_TRUSTED_IDENTITY_HEADERS=true`),
+the adapter reads the following headers and uses them to override the actor
+fields from the request body:
+
+| Header | SIP field |
+|--------|-----------|
+| `X-Actor-Id` | `ActorDescriptor.actor_id` |
+| `X-Actor-Type` | `ActorDescriptor.actor_type` |
+| `X-Actor-Name` | `ActorDescriptor.name` |
+| `X-Trust-Level` | `ActorDescriptor.trust_level` |
+| `X-Scopes` | `ActorDescriptor.scopes` (comma-separated) |
+
+**Precedence rule:** trusted external identity headers override conflicting
+actor identity fields from the request body.  Overrides are logged at INFO
+level.
+
+**Security requirement:** This feature is designed exclusively for deployments
+where the broker is behind a trusted gateway, reverse proxy, or service mesh
+that strips and re-injects these headers after authenticating the caller.  See
+[security-model.md](security-model.md) for security guidance.  Authentication
+remains entirely external to SIP.
 
 ### Observability
 
@@ -360,9 +414,19 @@ The reference implementation is organized as follows:
 sip/
   envelope/         # IntentEnvelope models and validation
   registry/         # CapabilityDescriptor and registry service
+                    #   storage.py: InMemoryCapabilityStore + JsonFileCapabilityStore
   negotiation/      # Capability matcher, planner, result models
   translator/       # Binding adapters (REST, gRPC, MCP, A2A, RAG)
   policy/           # Policy engine, scopes, risk classification
   observability/    # Tracing, audit records, structured logging
   broker/           # Broker service and HTTP interface
+                    #   service.py: BrokerService + FastAPI app
+                    #   identity.py: external identity header adapter
+data/
+  capabilities.json # Default persistent capability storage (created at runtime)
+examples/
+  http_broker_demo.py          # HTTP broker usage and curl examples
+  persistent_registry_demo.py  # Registry persistence save/reload demo
+  external_identity_demo.py    # Identity header mapping demo
 ```
+
