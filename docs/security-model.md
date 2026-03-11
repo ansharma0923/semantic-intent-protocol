@@ -6,6 +6,94 @@ SIP's security model is explicit, layered, and deterministic. There are no
 probabilistic security decisions — every policy evaluation is rule-based and
 produces a deterministic allow, deny, or require-approval result.
 
+## Authentication Boundary
+
+SIP does not perform authentication itself. Authentication is expected to occur
+at the transport or gateway layer, prior to any intent reaching the SIP broker.
+Supported authentication mechanisms include:
+
+- OAuth2 / OpenID Connect
+- JWT bearer tokens
+- mTLS client certificates
+- API gateway identity validation
+
+Once authentication succeeds, the resulting identity is mapped into the SIP
+`ActorDescriptor` inside the `IntentEnvelope`, including the actor's trust level
+and the set of granted scopes. SIP then performs authorization and policy
+evaluation using this actor identity exclusively.
+
+## Security Architecture
+
+The following diagram illustrates the separation between the authentication
+layer and the SIP authorization layer:
+
+```
+Client / Agent
+      │
+      │  Authentication
+      │  (OAuth2 / JWT / mTLS / API Gateway)
+      ▼
+Authenticated Identity
+      │
+      ▼
+SIP Broker
+      │
+      ├─ Envelope Validation
+      ├─ Capability Negotiation
+      ├─ Policy Engine (Authorization)
+      │      • scope checks
+      │      • trust levels
+      │      • risk rules
+      │      • delegation chain limits
+      │
+      ├─ Execution Plan
+      └─ Audit Record
+      │
+      ▼
+Execution Systems
+   REST | gRPC | MCP | A2A | RAG
+```
+
+- Authentication occurs before the SIP broker receives the request. The broker
+  assumes the identity presented in the `ActorDescriptor` has already been
+  verified by the transport or gateway layer.
+- Authorization decisions occur inside the SIP policy engine, which evaluates
+  scopes, trust levels, risk rules, and delegation chain constraints.
+- Execution systems rely on the execution plan produced by SIP and do not
+  re-evaluate policy.
+
+### Authorization Responsibilities of SIP
+
+SIP authorization covers the following:
+
+- **Scope-based access control** — every capability declares the scopes required
+  to invoke it; the policy engine denies requests with missing scopes.
+- **Trust level enforcement** — operations are gated on the actor's declared
+  trust level; the declared level may not exceed the actor's assigned level.
+- **Risk-based approval requirements** — high-risk and critical operations may
+  require explicit human approval before execution proceeds.
+- **Delegation chain control** — delegation depth is bounded to prevent
+  unbounded re-delegation cycles.
+- **Capability-specific constraints** — allowed and forbidden action lists are
+  enforced per intent, and data sensitivity limits are applied.
+
+These decisions are deterministic and rule-based. There is no probabilistic or
+heuristic policy evaluation in SIP v0.1.
+
+### Authentication Responsibilities Outside SIP
+
+The following concerns are outside the scope of SIP v0.1:
+
+- Credential verification
+- JWT signature validation
+- mTLS certificate validation
+- Token issuance
+- Identity federation
+
+These responsibilities are expected to be handled by identity providers, API
+gateways, or service meshes that sit in front of the SIP broker. SIP treats the
+identity presented in the `IntentEnvelope` as pre-verified.
+
 ## Layers of Control
 
 ### 1. Trust Levels
