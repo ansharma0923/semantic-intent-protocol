@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sip.broker.handlers import BrokerResult, process_intent
+from sip.broker.federation import FederationConfig
 from sip.envelope.models import IntentEnvelope
 from sip.negotiation.matcher import CapabilityMatcher
 from sip.negotiation.planner import ExecutionPlanner
@@ -44,6 +45,12 @@ class BrokerService:
     Wire up components at construction time. The default setup uses an
     in-memory registry and default policy settings. For production use,
     inject your own registry, policy engine, and adapter registry.
+
+    Args:
+        registry: Capability registry.  Defaults to in-memory.
+        policy_engine: Policy engine.  Defaults to default settings.
+        audit_log: List that accumulates audit records.
+        federation: Optional federation configuration for multi-broker mode.
     """
 
     registry: CapabilityRegistryService = field(
@@ -51,6 +58,7 @@ class BrokerService:
     )
     policy_engine: PolicyEngine = field(default_factory=PolicyEngine)
     audit_log: list[AuditRecord] = field(default_factory=list)
+    federation: FederationConfig | None = field(default=None)
 
     def __post_init__(self) -> None:
         self._matcher = CapabilityMatcher(self._registry)
@@ -62,10 +70,23 @@ class BrokerService:
             "a2a": A2aAdapter(),
             "rag": RagAdapter(),
         }
+        # Lazily-constructed discovery service
+        self._discovery_svc: Any = None
 
     @property
     def _registry(self) -> CapabilityRegistryService:
         return self.registry
+
+    @property
+    def discovery(self) -> Any:
+        """Return the DiscoveryService, creating it lazily."""
+        if self._discovery_svc is None:
+            from sip.broker.discovery import DiscoveryService
+            self._discovery_svc = DiscoveryService(
+                registry=self.registry,
+                federation=self.federation,
+            )
+        return self._discovery_svc
 
     def handle(self, envelope: IntentEnvelope) -> BrokerResult:
         """Process an IntentEnvelope through the full SIP pipeline.
@@ -300,9 +321,9 @@ try:
     # Capabilities listing endpoint
     # ------------------------------------------------------------------
 
-    @app.get("/capabilities", summary="List registered capabilities", tags=["registry"])
-    async def list_capabilities() -> JSONResponse:
-        """Return all registered capabilities."""
+    @app.get("/capabilities", summary="List registered capabilities (legacy)", tags=["registry"])
+    async def list_capabilities_legacy() -> JSONResponse:
+        """Return all registered capabilities (legacy path – prefer /sip/capabilities)."""
         caps = _broker.registry.list_all()
         return JSONResponse(
             content=[
@@ -315,6 +336,101 @@ try:
                 for c in caps
             ]
         )
+
+    # ------------------------------------------------------------------
+    # SIP capability discovery endpoints
+    # ------------------------------------------------------------------
+
+    @app.get(
+        "/sip/capabilities",
+        summary="List all registered capabilities",
+        tags=["capabilities"],
+    )
+    async def sip_list_capabilities() -> JSONResponse:
+        """Return the full list of registered capabilities as SIP descriptors."""
+        caps = _broker.registry.list_all()
+        return JSONResponse(
+            content=[c.model_dump(mode="json") for c in caps]
+        )
+
+    @app.get(
+        "/sip/capabilities/{capability_id}",
+        summary="Get a capability by ID",
+        tags=["capabilities"],
+    )
+    async def sip_get_capability(capability_id: str) -> JSONResponse:
+        """Return a single capability descriptor by its ID.
+
+        **Response status codes:**
+
+        * ``200`` – capability found
+        * ``404`` – capability not found
+        """
+        cap = _broker.registry.get_by_id(capability_id)
+        if cap is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": "not_found",
+                    "detail": f"Capability '{capability_id}' not found.",
+                },
+            )
+        return JSONResponse(content=cap.model_dump(mode="json"))
+
+    @app.post(
+        "/sip/capabilities/discover",
+        summary="Discover capabilities for a semantic intent query",
+        tags=["capabilities"],
+    )
+    async def sip_discover_capabilities(request: Request) -> JSONResponse:
+        """Accept a discovery request and return ranked capability candidates.
+
+        The request body must be a ``DiscoveryRequest`` JSON object with any
+        of the following optional fields:
+
+        * ``intent_name``          – machine-readable intent name
+        * ``intent_domain``        – functional domain
+        * ``operation_class``      – operation class
+        * ``preferred_bindings``   – list of preferred binding types
+        * ``candidate_capabilities`` – hint: preferred capability IDs
+        * ``trust_level``          – trust level of the requesting actor
+        * ``max_results``          – maximum number of candidates (default 5)
+        * ``include_remote``       – include peer broker results (default true)
+
+        **Response status codes:**
+
+        * ``200`` – success (may have zero candidates)
+        * ``400`` – invalid discovery request
+        * ``500`` – internal error
+        """
+        from sip.broker.discovery import DiscoveryRequest
+
+        try:
+            body = await request.json()
+        except Exception as exc:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "malformed_request", "detail": str(exc)},
+            )
+
+        try:
+            disc_req = DiscoveryRequest.model_validate(body)
+        except Exception as exc:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_discovery_request", "detail": str(exc)},
+            )
+
+        try:
+            disc_resp = _broker.discovery.discover(disc_req)
+        except Exception as exc:
+            logger.exception("Unexpected error during capability discovery")
+            return JSONResponse(
+                status_code=500,
+                content={"error": "internal_error", "detail": str(exc)},
+            )
+
+        return JSONResponse(content=disc_resp.model_dump(mode="json"))
 
     # ------------------------------------------------------------------
     # Legacy health alias (kept for backward compatibility)

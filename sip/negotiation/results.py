@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 from sip.envelope.models import BindingType
+from sip.extensions import validate_extension_keys
 from sip.registry.models import CapabilityDescriptor
 
 
@@ -79,3 +82,15 @@ class NegotiationResult(BaseModel):
         default_factory=lambda: PolicyDecisionSummary(allowed=True),
         description="Summary of policy evaluation.",
     )
+    extensions: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Optional protocol extensions.  Keys must use 'x_<name>' or "
+            "'<vendor>.<name>' format."
+        ),
+    )
+
+    @field_validator("extensions")
+    @classmethod
+    def _validate_extensions(cls, v: dict[str, Any]) -> dict[str, Any]:
+        return validate_extension_keys(v)

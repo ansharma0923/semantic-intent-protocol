@@ -13,6 +13,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+from sip.extensions import validate_extension_keys
+
 
 # ---------------------------------------------------------------------------
 # Enumerations
@@ -440,5 +442,18 @@ class IntentEnvelope(BaseModel):
             "cannot exceed the originator's authority (anti-laundering)."
         ),
     )
+    extensions: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Optional protocol extensions.  Keys must use 'x_<name>' or "
+            "'<vendor>.<name>' format (e.g. 'x_routing_hint' or 'acme.priority'). "
+            "Unknown extensions are preserved and ignored."
+        ),
+    )
+
+    @field_validator("extensions")
+    @classmethod
+    def _validate_extensions(cls, v: dict[str, Any]) -> dict[str, Any]:
+        return validate_extension_keys(v)
 
     model_config = {"frozen": True}

@@ -71,5 +71,24 @@ SIP v0.1 is the initial reference release. The Python reference implementation i
 - **Execution adapters** – REST, gRPC, MCP, A2A, and RAG translation adapters.
 - **Observability** – Structured audit records, tracing, and logging at every pipeline stage.
 
+### Protocol evolution (current):
+
+The following capabilities have been added to evolve the SIP reference implementation beyond v0.1 while preserving backward compatibility:
+
+- **Protocol extension points** – All core protocol objects (`IntentEnvelope`, `CapabilityDescriptor`, `NegotiationResult`, `ExecutionPlan`, `AuditRecord`) now support an optional `extensions` field for carrying vendor or application-specific metadata.  Extension keys must use `x_<name>` or `<vendor>.<name>` format.  Unknown extensions are always preserved and never affect core protocol processing.  See `sip/extensions.py` for validation rules.
+
+- **Capability discovery API** – New HTTP endpoints for structured capability discovery:
+  - `GET /sip/capabilities` – list all registered capabilities as full descriptors.
+  - `GET /sip/capabilities/{id}` – retrieve a capability by its unique ID.
+  - `POST /sip/capabilities/discover` – submit a `DiscoveryRequest` and receive ranked capability candidates.  Supports filtering by `intent_name`, `intent_domain`, `operation_class`, `preferred_bindings`, `trust_level`, and more.
+
+- **Distributed brokers** – The `DiscoveryService` supports optional peer broker federation.  When a `FederationConfig` is provided, the service forwards discovery requests to configured peer brokers via HTTP and aggregates local and remote candidates deterministically.  Local capabilities are preferred by default.  Peer failures are handled gracefully (soft mode) or cause fast-fail (strict mode).
+
+- **Federation model** – A trust-aware multi-broker model built on `FederationConfig` and `FederatedPeer`.  Three peer trust levels control capability visibility:
+  - `PeerTrustLevel.DISCOVERY` – remote capabilities appear in discovery results but are not eligible for routing.
+  - `PeerTrustLevel.ROUTING` – remote capabilities may be included in execution plans.
+  - `PeerTrustLevel.FULL` – peer is fully trusted for discovery, routing, and execution delegation metadata.
+  Remote capabilities are tagged with source broker provenance.  Local broker is always the final policy authority.
+
 The protocol specification is at v0.1 and should be considered a working draft open for community feedback.
 
