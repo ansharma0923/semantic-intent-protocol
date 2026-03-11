@@ -1,5 +1,7 @@
 # Semantic Intent Protocol (SIP) — Core Protocol Specification v0.1
 
+This document is the normative protocol specification for SIP v0.1. All protocol semantics, message structures, validation rules, and processing requirements are defined here.
+
 **Status**: Working Draft  
 **Version**: 0.1  
 **Date**: 2026

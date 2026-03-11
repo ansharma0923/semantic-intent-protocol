@@ -103,7 +103,7 @@ registry.register(my_capability)
 ## Capability Matching
 
 The registry's `find_matches()` method uses deterministic scoring to rank
-capabilities against an intent. See [protocol-spec-v0.1.md](protocol-spec-v0.1.md)
+capabilities against an intent. See [sip-wire-spec-v0.1.md](sip-wire-spec-v0.1.md)
 section 6 for the full scoring algorithm.
 
 Key design principle: **Matching never calls an LLM**. It is purely based on
