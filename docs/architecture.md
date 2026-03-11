@@ -1,6 +1,68 @@
 # SIP Architecture
 
-## High-Level Architecture
+## 1. Overview
+
+The Semantic Intent Protocol (SIP) is a protocol for expressing, routing, and
+executing semantic intents across heterogeneous execution environments. Rather
+than coupling actors directly to specific APIs or transport protocols, SIP
+introduces a structured intent layer that sits above execution systems.
+
+Actors express *what* they want to achieve through an `IntentEnvelope`. The SIP
+layer is responsible for discovering the right capability, evaluating policy,
+and producing an execution plan. Actual execution is delegated to an external
+system via a binding adapter.
+
+This document describes the conceptual architecture of SIP — the design goals,
+system roles, processing pipeline, and component model.
+
+---
+
+## 2. Design Goals
+
+SIP is built around the following core design principles:
+
+- **Semantic interoperability** — Intents are expressed in domain-neutral
+  semantic terms rather than API-specific calls, allowing the same intent to be
+  routed to different underlying systems.
+
+- **Deterministic execution** — Capability matching, policy evaluation, and
+  execution planning are rule-based and produce the same output for the same
+  input. There is no probabilistic or ML-based decision making in the control
+  path.
+
+- **Separation of intent and execution** — The SIP layer deals exclusively with
+  intent resolution and planning. It does not execute requests itself. This
+  clean separation makes the protocol composable and testable.
+
+- **Auditability and traceability** — Every intent processed by SIP produces a
+  structured audit record. Trace and span IDs flow through the full pipeline,
+  enabling end-to-end observability.
+
+- **Safety and policy enforcement** — Policy is evaluated before execution.
+  Scope checks, risk classification, data sensitivity rules, and delegation
+  depth limits are enforced centrally by the Policy Engine.
+
+---
+
+## 3. System Roles
+
+The SIP ecosystem defines the following roles:
+
+| Role | Description |
+|------|-------------|
+| **Actor** | The originator of an intent. May be a human user, an AI agent, or an automated service. Actors carry an identity, a trust level, and a set of granted scopes. |
+| **SIP Broker** | The central coordinator. Receives `IntentEnvelope` objects, orchestrates the processing pipeline, and returns an `ExecutionPlan` or a denial. |
+| **Capability Provider** | A system that can fulfill an intent. Providers register capabilities with the registry and are targeted by execution plans. |
+| **Capability Registry** | The authoritative store of available capabilities and their descriptors. Used during negotiation to discover and rank candidates. |
+| **Execution System** | The external runtime that carries out the execution plan. May be a REST API, a gRPC service, an MCP tool host, an A2A agent, or a RAG pipeline. |
+
+---
+
+## 4. Architectural Layers
+
+SIP operates as a protocol layer that sits above concrete execution systems.
+The SIP intent layer is responsible for semantic resolution, policy, and
+planning. The execution layer is responsible for carrying out operations.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -27,115 +89,206 @@
                     RAG Retrieval
 ```
 
-## Components
+The SIP layer has no direct dependency on any particular transport protocol.
+New execution systems can be integrated by adding a binding adapter without
+modifying the core protocol.
+
+---
+
+## 5. SIP Processing Pipeline
+
+The following describes the lifecycle of an intent as it passes through the
+SIP Broker:
+
+```
+IntentEnvelope
+→ envelope validation
+→ capability discovery
+→ negotiation
+→ policy evaluation
+→ execution planning
+→ binding translation
+→ execution by external system
+→ audit logging
+```
+
+1. **Envelope validation** — The incoming `IntentEnvelope` is checked for
+   structural completeness and required fields.
+2. **Capability discovery** — The registry is queried for candidates that match
+   the intent's name, domain, operation class, and binding preferences.
+3. **Negotiation** — Candidates are ranked by a deterministic scoring model and
+   a `NegotiationResult` is produced.
+4. **Policy evaluation** — The Policy Engine checks scopes, risk level, data
+   sensitivity, and delegation depth against the negotiation result.
+5. **Execution planning** — If policy allows, an `ExecutionPlan` is produced
+   that grounds the intent's parameters against the selected capability's input
+   schema.
+6. **Binding translation** — An adapter translates the `ExecutionPlan` into a
+   protocol-specific payload (HTTP request, gRPC message, etc.).
+7. **Execution by external system** — The payload is handed off to the
+   execution system. This step is outside the SIP control plane.
+8. **Audit logging** — An `AuditRecord` capturing the full decision trail is
+   persisted.
+
+---
+
+## 6. Core Components
 
 ### IntentEnvelope
 
-The root protocol object. Carries all information needed to process an intent:
-- Actor identity and trust level
-- Semantic intent payload (name, domain, operation class, parameters)
-- Desired outcome
-- Constraints (time budget, cost budget, determinism level)
-- Trust block (scopes, delegation chain)
-- Protocol binding preferences
-- Negotiation hints
+The root protocol object. Carries all information needed to resolve and plan
+an intent: actor identity and trust level, semantic intent payload (name,
+domain, operation class, parameters), desired outcome, constraints (time
+budget, cost budget, determinism level), trust block (scopes, delegation
+chain), protocol binding preferences, and negotiation hints.
 
 ### Capability Registry
 
-An in-memory store (replaceable with a persistent backend) that holds
-`CapabilityDescriptor` objects. The registry supports:
-- Registration and retrieval by ID
-- Deterministic matching by intent name, domain, operation class, binding, trust
+An authoritative store of `CapabilityDescriptor` objects. Supports
+registration, retrieval by ID, and deterministic matching by intent name,
+domain, operation class, binding type, and trust level. The storage backend
+is replaceable.
 
 ### Negotiation Engine
 
-The `CapabilityMatcher` queries the registry and produces a `NegotiationResult`
-with ranked candidates. Scoring is deterministic and additive:
-- Exact intent name match: +3.0
-- Partial name match: +2.0
-- Exact domain match: +2.0
-- Partial domain match: +1.0
-- Operation class match: +2.0
-- Preferred binding match: +1.5
-- Candidate hint: +0.5
-
-At least one name or domain signal is required for a capability to be considered.
+Queries the registry and ranks matching capabilities by a deterministic,
+additive scoring model. Produces a `NegotiationResult` with ordered
+candidates. At least one semantic signal (name or domain) must match for a
+capability to be considered.
 
 ### Policy Engine
 
-The `PolicyEngine` evaluates four rules:
-1. **Scope check** – Actor must hold all required scopes.
-2. **Risk + operation** – High-risk write/execute may require human approval.
-3. **Risk + sensitivity** – Critical risk + restricted data is denied.
-4. **Delegation depth** – Prevents unbounded delegation chains (max 5).
+Evaluates a fixed set of rules before execution is permitted:
+- **Scope check** — The actor must hold all required scopes.
+- **Risk and operation class** — High-risk write or execute operations may
+  require explicit human approval.
+- **Risk and data sensitivity** — Critical risk combined with restricted data
+  is denied.
+- **Delegation depth** — Unbounded delegation chains are prevented.
 
-Policy decisions are always deterministic and rule-based. No ML involved.
+Policy decisions are always deterministic and rule-based.
 
 ### Execution Planner
 
-The `ExecutionPlanner` takes a `NegotiationResult` and produces an `ExecutionPlan`:
-- Grounds parameters from the envelope against the capability's input schema
-- Builds a deterministic target (endpoint, provider, binding)
-- Creates execution steps
-- Records policy checks passed
-- Sets `approval_required` flag
+Consumes a `NegotiationResult` and produces an `ExecutionPlan` that
+identifies the target provider, binding, endpoint, and grounded parameter
+set. Records which policy checks passed and whether human approval is
+required before execution.
 
 ### Translator Adapters
 
 Each adapter translates an `ExecutionPlan` into a binding-specific payload:
 
-| Adapter | Output |
-|---------|--------|
-| `RestAdapter` | HTTP method, path, headers, body, query params |
-| `GrpcAdapter` | Service name, method name, request message, metadata |
-| `McpAdapter` | Tool name, tool arguments, execution contract |
-| `A2aAdapter` | Agent task type, target agent, task payload, delegation context |
-| `RagAdapter` | Collection, retrieval query, filters, result contract |
+| Binding | Payload |
+|---------|---------|
+| REST | HTTP method, path, headers, body, query parameters |
+| gRPC | Service name, method name, request message, metadata |
+| MCP | Tool name, tool arguments, execution contract |
+| A2A | Agent task type, target agent, task payload, delegation context |
+| RAG | Collection, retrieval query, filters, result contract |
 
-Adapters **do not** execute — they produce deterministic payloads for executors.
+Adapters produce deterministic payloads. They do not perform execution.
 
 ### Broker Service
 
-The `BrokerService` orchestrates the full pipeline:
-1. Validate the envelope
-2. Match capabilities (negotiation)
-3. Evaluate policy
-4. Create execution plan
-5. Generate audit record
-
-The broker also exposes an optional FastAPI HTTP interface.
+Orchestrates the full processing pipeline: envelope validation, capability
+negotiation, policy evaluation, execution planning, and audit record
+generation. Exposes an HTTP interface for integration with external systems.
 
 ### Observability
 
-Every processed intent produces an `AuditRecord` containing:
-- Actor, intent, capability, binding, policy result, approval state, outcome
+Every processed intent produces a structured `AuditRecord` capturing the
+actor, intent, selected capability, binding, policy result, approval state,
+and outcome. Trace and span IDs propagate through the entire pipeline to
+support distributed tracing and end-to-end auditability.
 
-Structured logging helpers use the standard library `logging` module.
-Trace and span IDs flow through the entire pipeline.
+---
 
-## Data Flow
+## 7. Control Plane vs Execution Plane
+
+SIP operates exclusively as a **control plane**. It resolves intents,
+evaluates policy, and produces execution plans, but it does not carry out
+operations itself.
+
+Execution is delegated to an **execution plane** consisting of external
+systems targeted by binding adapters.
 
 ```
-1. Actor creates IntentEnvelope
-2. Broker validates envelope (sip.envelope.validator)
-3. Broker calls matcher.match(envelope) → NegotiationResult
-4. Broker calls policy_engine.evaluate(envelope, negotiation) → enriched NegotiationResult
-5. If allowed: broker calls planner.plan(envelope, negotiation) → ExecutionPlan
-6. Broker creates AuditRecord
-7. Optional: adapter.translate(plan) → binding-specific payload
-8. Payload handed to executor (outside SIP scope in v0.1)
+┌──────────────────────────────┐
+│     Control Plane (SIP)      │
+│                              │
+│   IntentEnvelope             │
+│   Negotiation                │
+│   Policy                     │
+│   ExecutionPlan              │
+└──────────────┬───────────────┘
+               │ binding payload
+┌──────────────▼───────────────┐
+│      Execution Plane         │
+│                              │
+│   REST                       │
+│   gRPC                       │
+│   MCP                        │
+│   A2A                        │
+│   RAG                        │
+└──────────────────────────────┘
 ```
 
-## Package Structure
+This separation means that SIP can be adopted incrementally. Existing
+services remain unchanged; they are simply registered as capabilities and
+targeted by execution plans.
+
+---
+
+## 8. Binding Adapter Model
+
+A binding adapter is a stateless translator that converts an `ExecutionPlan`
+into the payload format expected by a specific execution system. Each adapter
+is responsible for one binding type (REST, gRPC, MCP, A2A, or RAG).
+
+Adapters read the execution plan's target, binding, and grounded parameters,
+and produce a self-contained payload that an executor can submit directly to
+the target system without further interpretation.
+
+Adding support for a new execution system requires implementing a new adapter
+against the common adapter interface. No changes to the broker, policy engine,
+or negotiation engine are required.
+
+---
+
+## 9. Observability Model
+
+SIP provides structured observability at every stage of the processing
+pipeline:
+
+- **Trace ID** — A unique identifier assigned to each `IntentEnvelope`
+  submission. Propagated through all pipeline stages.
+- **Span IDs** — Individual spans are created for negotiation, policy
+  evaluation, and execution planning, enabling per-stage latency
+  measurement.
+- **Structured logging** — Log entries are emitted at each pipeline stage
+  with consistent fields (trace ID, actor, intent, capability, binding,
+  policy outcome).
+- **Audit records** — A durable `AuditRecord` is written after each
+  processed intent, capturing the full decision trail for compliance and
+  post-hoc analysis.
+
+The observability model is designed to support both real-time monitoring and
+retrospective audit requirements.
+
+---
+
+## 10. Reference Implementation Layout
+
+The reference implementation is organized as follows:
 
 ```
 sip/
-  __init__.py
   envelope/         # IntentEnvelope models and validation
-  registry/         # CapabilityDescriptor, registry service, storage, bootstrap
-  negotiation/      # Matcher, planner, result models
-  translator/       # Base adapter + REST, gRPC, MCP, A2A, RAG adapters
-  policy/           # Engine, scopes, approvals, risk
-  observability/    # Tracing, audit, logging
-  broker/           # BrokerService, pipeline handlers, FastAPI app
+  registry/         # CapabilityDescriptor and registry service
+  negotiation/      # Capability matcher, planner, result models
+  translator/       # Binding adapters (REST, gRPC, MCP, A2A, RAG)
+  policy/           # Policy engine, scopes, risk classification
+  observability/    # Tracing, audit records, structured logging
+  broker/           # Broker service and HTTP interface
 ```
