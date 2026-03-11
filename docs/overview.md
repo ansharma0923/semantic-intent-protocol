@@ -48,11 +48,28 @@ AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this hap
 - SIP is **not** an LLM orchestration framework.
 - SIP is **not** a workflow engine or task scheduler.
 - SIP is **not** a messaging queue or event bus.
+- The HTTP API is **one transport surface** for SIP — it is not the protocol definition itself.
 
 SIP is a **semantic negotiation and translation layer** that makes existing systems interoperable through structured intent expression.
 
 ## Current Status
 
-SIP v0.1 is in private development. The Python reference implementation in this repository demonstrates the core protocol objects, capability registry, negotiation engine, policy engine, and execution adapters.
+SIP v0.1 is the initial reference release. The Python reference implementation in this repository demonstrates all core protocol capabilities.
 
-The protocol specification is at v0.1 and should be considered a working draft.
+### SIP v0.1 includes:
+
+- **Core protocol objects** – `IntentEnvelope`, `CapabilityDescriptor`, `ExecutionPlan`, `AuditRecord`, and all supporting models.
+- **Capability registry** – In-memory and **file-backed JSON persistence** for capability descriptors.  Capabilities can be saved to disk and reloaded on startup (`data/capabilities.json` by default, configurable via `SIP_CAPABILITIES_FILE`).
+- **Broker HTTP API** – A FastAPI-based HTTP interface exposing:
+  - `POST /sip/intents` – submit an `IntentEnvelope` and receive a structured broker response.
+  - `GET /healthz` – liveness / readiness check.
+  - `GET /capabilities` – list registered capabilities.
+- **External identity integration** – Support for mapping externally authenticated identity claims (from trusted HTTP headers such as `X-Actor-Id`, `X-Actor-Type`, `X-Trust-Level`, `X-Scopes`) into SIP actor and trust context.  Authentication remains external to SIP; SIP only maps pre-verified claims.
+- **Policy engine** – Deterministic scope, risk, data sensitivity, and delegation chain evaluation.
+- **Provenance and intent laundering protections** – Optional `ProvenanceBlock` on each envelope enforces that delegated authority cannot exceed the originator's authority.
+- **Negotiation engine** – Deterministic capability matching and ranking.
+- **Execution adapters** – REST, gRPC, MCP, A2A, and RAG translation adapters.
+- **Observability** – Structured audit records, tracing, and logging at every pipeline stage.
+
+The protocol specification is at v0.1 and should be considered a working draft open for community feedback.
+

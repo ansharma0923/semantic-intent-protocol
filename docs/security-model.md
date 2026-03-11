@@ -49,6 +49,53 @@ Once authentication succeeds, the resulting identity is mapped into the SIP
 and the set of granted scopes. SIP then performs authorization and policy
 evaluation using this actor identity exclusively.
 
+### External Identity Integration via Trusted Headers
+
+SIP v0.1 adds optional support for mapping pre-authenticated identity claims
+from HTTP request headers into SIP actor and trust context.  This allows an
+API gateway or service mesh to inject verified identity after authentication,
+without requiring the caller to re-specify it in every request body.
+
+**Supported headers:**
+
+| Header | Maps to |
+|--------|---------|
+| `X-Actor-Id` | `ActorDescriptor.actor_id` |
+| `X-Actor-Type` | `ActorDescriptor.actor_type` |
+| `X-Actor-Name` | `ActorDescriptor.name` |
+| `X-Trust-Level` | `ActorDescriptor.trust_level` |
+| `X-Scopes` | `ActorDescriptor.scopes` (comma-separated) |
+
+**Precedence rule:** when trusted identity headers are enabled and a header is
+present, the header value **overrides** the corresponding field from the request
+body.  This is logged at INFO level to maintain an audit trail.
+
+**Configuration:** set `SIP_TRUSTED_IDENTITY_HEADERS=true` (or `1` / `yes`) in
+the broker's environment to enable header mapping.  The default is `false`
+(disabled).
+
+**⚠ Security requirements:**
+
+1. **Trusted deployment only.** Header-based identity mapping is designed
+   exclusively for deployments where the SIP broker is behind a trusted API
+   gateway, reverse proxy, or service mesh.  The upstream infrastructure must:
+   - Strip any client-supplied `X-Actor-*` and `X-Trust-Level` / `X-Scopes`
+     headers from incoming requests before forwarding.
+   - Re-inject the authenticated identity as headers only after validating
+     the caller's credentials.
+
+2. **Do not expose the broker directly to untrusted clients** when this feature
+   is enabled.  A malicious client could send arbitrary `X-Actor-Id` or
+   `X-Trust-Level` headers to impersonate a more privileged identity.
+
+3. **This feature does not perform authentication.** SIP still does not
+   validate tokens, certificates, or any credential.  It only maps
+   pre-verified claims provided by the trusted infrastructure.
+
+4. **Audit trail.** Every header override is logged at INFO level, including
+   the original body value and the new header value, providing a clear audit
+   trail for security review.
+
 ## Security Architecture
 
 The following diagram illustrates the separation between the authentication
@@ -264,3 +311,5 @@ Intent laundering arises when semantic transformations across agents cause privi
 4. Enable `SIP_REQUIRE_APPROVAL_HIGH_RISK=true` in production.
 5. Implement envelope signing using the `integrity` block when feasible.
 6. Restrict the `sip:admin` scope to a minimum set of administrative actors.
+7. When using persistent capability registry (`JsonFileCapabilityStore`), restrict read/write permissions on `data/capabilities.json` to the broker process only.
+8. If enabling `SIP_TRUSTED_IDENTITY_HEADERS=true`, ensure the SIP broker is not directly reachable by untrusted clients; deploy behind a gateway that strips and re-injects identity headers.

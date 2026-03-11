@@ -325,13 +325,157 @@ It MUST NOT be parsed, interpreted, or executed by any SIP component.
 
 ---
 
-## 13. Versioning
+## 13. Broker HTTP API
+
+### 13.1 Overview
+
+The SIP broker MAY expose an HTTP API as a transport surface.  The HTTP API is
+**not** the protocol definition itself; all SIP semantics, policy evaluation,
+provenance tracking, and audit behaviour are identical regardless of transport.
+
+### 13.2 Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/healthz` | Liveness check. Returns `{"status": "ok", "version": "0.1.0", "capabilities": <n>}`. |
+| `POST` | `/sip/intents` | Submit an `IntentEnvelope` for processing. |
+| `GET`  | `/capabilities` | List all registered capabilities. |
+
+### 13.3 POST /sip/intents – Request
+
+The request body MUST be a JSON-serialised `IntentEnvelope` conforming to
+Section 3.  Content-Type MUST be `application/json`.
+
+### 13.4 POST /sip/intents – Response
+
+The response body is a JSON object with the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `intent_id` | string | UUID of the processed intent. |
+| `outcome` | string | Outcome summary (`success`, `denied`, `pending_approval`, `needs_clarification`, `error`). |
+| `action_taken` | string | Action recorded in the audit log. |
+| `policy_allowed` | boolean | Whether policy permitted the intent. |
+| `approval_required` | boolean | Whether human approval is required before execution. |
+| `plan_id` | string \| null | UUID of the execution plan, or `null`. |
+| `requires_clarification` | boolean | Whether the broker needs more information. |
+| `policy_notes` | string[] | Human-readable policy decision notes. |
+| `audit_record` | object | Full audit record (see Section 9). |
+
+### 13.5 HTTP Status Codes
+
+| Code | Condition |
+|------|-----------|
+| `200` | Intent processed successfully; execution plan created. |
+| `202` | Intent processed; approval required before execution. |
+| `400` | Envelope validation failed. |
+| `403` | Policy denied the intent. |
+| `422` | Malformed request body; cannot be parsed as an `IntentEnvelope`. |
+| `500` | Unexpected internal error. |
+
+---
+
+## 14. Capability Registry Persistence
+
+### 14.1 Persistence Model
+
+SIP v0.1 provides a file-backed JSON persistence layer for the capability
+registry (`JsonFileCapabilityStore`).  This allows capabilities to survive
+broker restarts without an external database.
+
+### 14.2 Default Storage Location
+
+The default capability file path is `data/capabilities.json` (relative to the
+working directory).  This can be overridden via the `SIP_CAPABILITIES_FILE`
+environment variable.
+
+### 14.3 Persistence Behaviour
+
+- On construction, `JsonFileCapabilityStore` loads capabilities from the file
+  if it exists.
+- Every write operation (register, unregister, clear) immediately flushes the
+  current state to disk.
+- If the file does not exist, the store starts empty.  Seed capabilities can
+  be loaded by calling `seed_registry()` after construction.
+- The file format is a JSON array of `CapabilityDescriptor` objects serialised
+  using `model_dump(mode="json")`.
+
+### 14.4 Schema Compatibility
+
+The JSON file format is fully compatible with `CapabilityDescriptor` as defined
+in Section 4.  Capabilities can be loaded and saved roundtrip without loss.
+
+---
+
+## 15. External Identity Integration
+
+### 15.1 Overview
+
+SIP never performs authentication.  Authentication is the responsibility of
+the caller's infrastructure.
+
+SIP v0.1 adds support for accepting externally authenticated identity claims
+from HTTP request headers and mapping them into `ActorDescriptor` and trust
+context fields.
+
+### 15.2 Identity Headers
+
+When the broker HTTP API is deployed behind a trusted gateway, the following
+headers MAY be used to supply pre-authenticated actor identity:
+
+| Header | Maps to |
+|--------|---------|
+| `X-Actor-Id` | `ActorDescriptor.actor_id` |
+| `X-Actor-Type` | `ActorDescriptor.actor_type` |
+| `X-Actor-Name` | `ActorDescriptor.name` |
+| `X-Trust-Level` | `ActorDescriptor.trust_level` |
+| `X-Scopes` | `ActorDescriptor.scopes` (comma-separated) |
+
+### 15.3 Precedence Rule
+
+When trusted identity header mapping is enabled, header values **override**
+conflicting actor identity fields from the request body.  Overrides are logged
+at INFO level.
+
+### 15.4 Configuration
+
+Set `SIP_TRUSTED_IDENTITY_HEADERS=true` to enable header mapping.  The default
+is `false` (disabled).
+
+### 15.5 Security Requirements
+
+Header-based identity mapping MUST only be used when the SIP broker is deployed
+behind a trusted gateway or service mesh that:
+
+1. Strips any client-supplied `X-Actor-*`, `X-Trust-Level`, and `X-Scopes`
+   headers from incoming requests.
+2. Re-injects the headers only after validating the caller's credentials.
+
+Implementations MUST NOT enable `SIP_TRUSTED_IDENTITY_HEADERS=true` in
+deployments where the broker is directly reachable by untrusted clients.
+
+---
+
+## 16. Versioning
 
 This is SIP protocol version `0.1`. Breaking changes will increment the major version.
 The `sip_version` field in `IntentEnvelope` identifies the protocol version.
 Brokers MUST reject envelopes with unrecognized versions.
 
-### 13.1 Forward Compatibility
+### 16.1 Forward Compatibility
 
 Implementations MUST ignore unknown optional fields in protocol objects. This is required to allow
 forward-compatible minor protocol evolution without breaking existing consumers.
+
+### 16.2 v0.1 Feature Set
+
+SIP v0.1 includes:
+
+- Core protocol objects (`IntentEnvelope`, `CapabilityDescriptor`, `ExecutionPlan`, `AuditRecord`)
+- Capability registry with in-memory and file-backed JSON persistence
+- Broker HTTP API (`POST /sip/intents`, `GET /healthz`, `GET /capabilities`)
+- External identity integration via trusted HTTP headers
+- Policy engine with scope, risk, data sensitivity, and delegation chain evaluation
+- Provenance and intent laundering protections
+- Deterministic negotiation engine
+- REST, gRPC, MCP, A2A, and RAG execution adapters
