@@ -9,9 +9,10 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from sip.envelope.models import BindingType, OperationClass, TrustLevel
+from sip.extensions import validate_extension_keys
 
 
 # ---------------------------------------------------------------------------
@@ -189,3 +190,15 @@ class CapabilityDescriptor(BaseModel):
         default_factory=list,
         description="Searchable tags.",
     )
+    extensions: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Optional protocol extensions.  Keys must use 'x_<name>' or "
+            "'<vendor>.<name>' format."
+        ),
+    )
+
+    @field_validator("extensions")
+    @classmethod
+    def _validate_extensions(cls, v: dict[str, Any]) -> dict[str, Any]:
+        return validate_extension_keys(v)

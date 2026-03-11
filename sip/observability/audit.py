@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from sip.extensions import validate_extension_keys
 
 
 class ActionTaken(str, Enum):
@@ -93,6 +96,18 @@ class AuditRecord(BaseModel):
         default_factory=list,
         description="Delegation chain captured from the provenance block, if present.",
     )
+    extensions: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Optional protocol extensions.  Keys must use 'x_<name>' or "
+            "'<vendor>.<name>' format."
+        ),
+    )
+
+    @field_validator("extensions")
+    @classmethod
+    def _validate_extensions(cls, v: dict[str, Any]) -> dict[str, Any]:
+        return validate_extension_keys(v)
 
     model_config = {"frozen": True}
 

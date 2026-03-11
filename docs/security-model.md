@@ -313,3 +313,44 @@ Intent laundering arises when semantic transformations across agents cause privi
 6. Restrict the `sip:admin` scope to a minimum set of administrative actors.
 7. When using persistent capability registry (`JsonFileCapabilityStore`), restrict read/write permissions on `data/capabilities.json` to the broker process only.
 8. If enabling `SIP_TRUSTED_IDENTITY_HEADERS=true`, ensure the SIP broker is not directly reachable by untrusted clients; deploy behind a gateway that strips and re-injects identity headers.
+
+## Federation Security
+
+When operating in a federated multi-broker topology, the following security properties are maintained:
+
+### Local policy authority
+
+The local broker is always the **final policy authority**.  Remote discovery results are tagged with `routing_allowed=False` unless the source peer holds `ROUTING` or `FULL` trust level.  Before including a remote capability in an execution plan, the local broker must:
+
+1. Check `routing_allowed` to determine if the peer trust level permits routing.
+2. Apply all local policy checks (scope validation, risk assessment, data sensitivity) to the remote capability just as it would to a local capability.
+3. Reject any remote capability that does not pass local policy, regardless of peer trust level.
+
+Remote discovery results **never bypass local policy evaluation**.
+
+### Peer trust levels
+
+| Level | Effect |
+|-------|--------|
+| `DISCOVERY` | Peer capabilities appear in discovery results only.  `routing_allowed=False`.  Cannot be used for routing or execution planning. |
+| `ROUTING` | Peer capabilities may be included in execution plans.  `routing_allowed=True`. |
+| `FULL` | Fully trusted peer.  Same as ROUTING in the current implementation. |
+
+Peers not in the `FederationConfig.peers` list receive no trust and their capabilities are never returned.
+
+### Provenance across broker boundaries
+
+Remote capability results carry a `discovery_path` field recording the chain of broker IDs through which the capability was discovered.  This enables end-to-end provenance tracking and ensures the audit trail reflects cross-broker operations.
+
+When a broker receives a remote capability from a peer, the peer's broker ID is prepended to the discovery path.  This means that for a capability originating at `broker-c` and forwarded through `broker-b` to `broker-a`, the path is `["broker-a", "broker-b", "broker-c"]`.
+
+### Extension security
+
+Protocol extensions (`extensions` field on core objects) follow strict naming rules:
+
+- Extension keys must use `x_<name>` or `<vendor>.<name>` format.
+- Reserved core field names cannot be redefined in extensions.
+- Extensions are validated at object construction time by Pydantic validators.
+- Extensions from remote peers are accepted as-is (opaque data) and are not executed or evaluated by the local broker.
+
+Extensions must not contain credentials, tokens, or security-sensitive data.  They are part of the audit trail and will appear in audit records.

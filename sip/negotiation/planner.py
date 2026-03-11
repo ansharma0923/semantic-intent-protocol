@@ -10,9 +10,10 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from sip.envelope.models import BindingType, IntentEnvelope
+from sip.extensions import validate_extension_keys
 from sip.negotiation.results import NegotiationResult
 from sip.registry.models import CapabilityDescriptor
 
@@ -100,6 +101,18 @@ class ExecutionPlan(BaseModel):
             "systems can observe the full delegation path."
         ),
     )
+    extensions: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Optional protocol extensions.  Keys must use 'x_<name>' or "
+            "'<vendor>.<name>' format."
+        ),
+    )
+
+    @field_validator("extensions")
+    @classmethod
+    def _validate_extensions(cls, v: dict[str, Any]) -> dict[str, Any]:
+        return validate_extension_keys(v)
 
 
 # ---------------------------------------------------------------------------

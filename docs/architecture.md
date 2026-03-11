@@ -281,7 +281,10 @@ The broker exposes an HTTP interface built with FastAPI:
 |--------|------|-------------|
 | `GET`  | `/healthz` | Liveness / readiness check. Returns status and capability count. |
 | `POST` | `/sip/intents` | Submit an `IntentEnvelope` for processing. Returns a structured broker response. |
-| `GET`  | `/capabilities` | List all registered capabilities. |
+| `GET`  | `/capabilities` | List registered capabilities (legacy path). |
+| `GET`  | `/sip/capabilities` | List all registered capabilities as full descriptors. |
+| `GET`  | `/sip/capabilities/{id}` | Retrieve a capability by its unique ID. |
+| `POST` | `/sip/capabilities/discover` | Submit a `DiscoveryRequest` and receive ranked capability candidates. |
 
 **HTTP status codes returned by `POST /sip/intents`:**
 
@@ -292,6 +295,15 @@ The broker exposes an HTTP interface built with FastAPI:
 | `400` | Envelope validation failed. |
 | `403` | Policy denied the intent. |
 | `422` | Malformed request body; cannot be parsed as an `IntentEnvelope`. |
+| `500` | Unexpected internal error. |
+
+**HTTP status codes returned by capability discovery endpoints:**
+
+| Code | Condition |
+|------|-----------|
+| `200` | Success (discovery may have zero candidates). |
+| `400` | Invalid discovery request. |
+| `404` | Capability not found (`GET /sip/capabilities/{id}`). |
 | `500` | Unexpected internal error. |
 
 The HTTP API is **one transport surface** for the SIP broker — it is not the
@@ -413,6 +425,7 @@ The reference implementation is organized as follows:
 ```
 sip/
   envelope/         # IntentEnvelope models and validation
+  extensions.py     # Protocol extension key validation (x_ / vendor. rules)
   registry/         # CapabilityDescriptor and registry service
                     #   storage.py: InMemoryCapabilityStore + JsonFileCapabilityStore
   negotiation/      # Capability matcher, planner, result models
@@ -422,11 +435,156 @@ sip/
   broker/           # Broker service and HTTP interface
                     #   service.py: BrokerService + FastAPI app
                     #   identity.py: external identity header adapter
+                    #   discovery.py: DiscoveryService with peer federation
+                    #   federation.py: FederationConfig, FederatedPeer, PeerTrustLevel
 data/
   capabilities.json # Default persistent capability storage (created at runtime)
 examples/
-  http_broker_demo.py          # HTTP broker usage and curl examples
-  persistent_registry_demo.py  # Registry persistence save/reload demo
-  external_identity_demo.py    # Identity header mapping demo
+  http_broker_demo.py              # HTTP broker usage and curl examples
+  persistent_registry_demo.py     # Registry persistence save/reload demo
+  external_identity_demo.py       # Identity header mapping demo
+  protocol_extensions_demo.py     # Extension fields on core protocol objects
+  capability_discovery_api_demo.py # Capability discovery HTTP API demo
+  distributed_brokers_demo.py     # Multi-broker peer discovery demo
+  federation_demo.py              # Federation trust levels demo
 ```
+
+---
+
+## 11. Protocol Extension Points
+
+All core SIP protocol objects support an optional `extensions` field for
+carrying vendor or application-specific metadata without modifying the core
+protocol schema.
+
+**Extension key rules:**
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| `x_<name>` | `x_routing_hint` | Custom / vendor-local extension |
+| `<vendor>.<name>` | `acme.priority` | Namespace-qualified extension |
+
+**Rules:**
+- Extension keys must use one of the two formats above.
+- Reserved core field names (e.g. `intent_id`, `actor`, `trace_id`) cannot be used as extension keys.
+- Unknown extensions are always preserved and never cause protocol failures.
+- Extensions must not override core protocol semantics.
+- All validation is enforced at object construction time via Pydantic validators.
+
+**Objects that support extensions:**
+
+| Object | Field |
+|--------|-------|
+| `IntentEnvelope` | `extensions` |
+| `CapabilityDescriptor` | `extensions` |
+| `NegotiationResult` | `extensions` |
+| `ExecutionPlan` | `extensions` |
+| `AuditRecord` | `extensions` |
+
+**Backward compatibility:** All existing code that does not populate `extensions` continues to work unchanged. The field defaults to an empty dict.
+
+---
+
+## 12. Capability Discovery API
+
+The broker exposes three capability discovery endpoints:
+
+### `GET /sip/capabilities`
+
+Returns the full list of registered capabilities as JSON-serialized `CapabilityDescriptor` objects.
+
+### `GET /sip/capabilities/{capability_id}`
+
+Returns a single capability by its unique ID. Returns `404` if not found.
+
+### `POST /sip/capabilities/discover`
+
+Accepts a `DiscoveryRequest` JSON body and returns a `DiscoveryResponse` with ranked capability candidates.
+
+**`DiscoveryRequest` fields (all optional):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `intent_name` | string | Machine-readable intent name to match |
+| `intent_domain` | string | Functional domain to filter by |
+| `operation_class` | enum | Operation class to match |
+| `preferred_bindings` | list[BindingType] | Preferred binding types |
+| `candidate_capabilities` | list[string] | Hint: preferred capability IDs |
+| `trust_level` | TrustLevel | Trust level of requesting actor |
+| `max_results` | int (1–100) | Maximum candidates to return (default 5) |
+| `include_remote` | bool | Include peer broker candidates (default true) |
+
+**`DiscoveryResponse` fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `candidates` | list[DiscoveryCandidate] | Ranked candidates, best first |
+| `total` | int | Total candidates returned |
+| `local_count` | int | Number of local candidates |
+| `remote_count` | int | Number of remote (peer) candidates |
+| `peers_queried` | list[string] | Broker IDs of peers queried |
+| `peers_failed` | list[string] | Broker IDs of peers that failed |
+
+Each `DiscoveryCandidate` includes `capability_id`, `name`, `score`,
+`source_broker_id` (null for local), `routing_allowed`, and `discovery_path`.
+
+---
+
+## 13. Distributed Brokers
+
+The `DiscoveryService` (`sip/broker/discovery.py`) provides optional peer broker
+federation when a `FederationConfig` is injected.
+
+### Peer discovery flow:
+
+1. `DiscoveryService.discover(request)` is called.
+2. Local registry is queried using `CapabilityRegistryService.find_matches`.
+3. For each configured peer, an HTTP `POST /sip/capabilities/discover` is sent.
+4. Remote results are tagged with the source broker's ID, URL, and trust level.
+5. Local and remote candidates are aggregated deterministically.
+
+### Aggregation rules:
+
+- When `prefer_local=True` (default), local candidates appear before remote candidates.
+- Remote candidates are sorted by `(trust_level DESC, score DESC, broker_id ASC)`.
+- When `prefer_local=False`, all candidates are sorted by score, with local candidates winning ties.
+- The final list is trimmed to `max_results`.
+
+### Error handling:
+
+- **Soft mode** (`strict_mode=False`, default): peer failures are logged and skipped.
+- **Strict mode** (`strict_mode=True`): any peer failure raises `RuntimeError`.
+
+---
+
+## 14. Federation Model
+
+The federation model is implemented in `sip/broker/federation.py`.
+
+### Core concepts:
+
+| Concept | Description |
+|---------|-------------|
+| `FederatedPeer` | Describes a trusted peer broker: ID, URL, trust level |
+| `PeerTrustLevel` | `DISCOVERY`, `ROUTING`, or `FULL` |
+| `FederationConfig` | Broker identity + list of trusted peers + policy flags |
+| `RemoteCapabilityResult` | A capability returned by a peer, with source provenance |
+
+### Trust levels:
+
+| Level | Discovery | Routing | Description |
+|-------|-----------|---------|-------------|
+| `DISCOVERY` | ✓ | ✗ | Peer capabilities appear in results but cannot be routed |
+| `ROUTING` | ✓ | ✓ | Peer capabilities may be included in execution plans |
+| `FULL` | ✓ | ✓ | Fully trusted peer |
+
+The `routing_allowed` flag on each `DiscoveryCandidate` reflects the peer's trust level. The local broker's planner and policy engine **must** check `routing_allowed` before including a remote capability in an execution plan.
+
+### Provenance preservation:
+
+Remote capability results carry a `discovery_path` list that records the broker IDs through which the capability was discovered. This enables end-to-end provenance tracking across broker boundaries.
+
+### Policy boundary:
+
+The local broker is always the final policy authority. Remote discovery results do not bypass local policy evaluation. The `routing_allowed` flag is a pre-filter; local scope, risk, and sensitivity checks still apply to all capabilities — local and remote — before execution planning proceeds.
 
