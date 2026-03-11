@@ -132,6 +132,51 @@ IntentEnvelope
 
 ---
 
+## 5a. Intent Provenance
+
+When AI agents mediate user requests — translating natural language into structured `IntentEnvelope` objects — the broker cannot assume that the submitting actor and the original requester are the same entity. SIP defines an optional `provenance` block in the `IntentEnvelope` that records the full chain of intent mediation, enabling the policy engine to consider the originator's authority alongside the submitting actor's authority.
+
+### Separation of Concerns
+
+- **Authentication** occurs outside SIP at the transport or gateway layer. The SIP broker treats the identity presented in the `IntentEnvelope` as pre-verified.
+- **Authorization** occurs inside the SIP Policy Engine, which evaluates scopes, trust levels, risk rules, and delegation chain constraints.
+- **Intent provenance** ensures that delegated requests cannot silently escalate privileges. When an AI agent submits an intent on behalf of a user, the originator's constrained authority is preserved in the provenance block, and the policy engine enforces that the final action is authorized for both the submitting actor and the originator.
+
+> **Provenance trust:** The broker accepts provenance claims at the same trust level as the submitting actor's authenticated identity. Verifying that `provenance.originator` accurately represents the actual originating entity is a deployment concern: systems should ensure that only trusted, authenticated agents are permitted to populate the provenance block, and that the `authority_scope` they declare does not exceed the scopes they were themselves granted on behalf of the originator. Cryptographic attestation of provenance claims is outside the scope of SIP v0.1.
+
+### Intent Mediation Flow
+
+```
+Originator
+    │  (user or originating system generates the request)
+    ↓
+Agent Mediation
+    │  (AI agent translates NL to structured IntentEnvelope;
+    │   populates provenance.originator and authority_scope)
+    ↓
+Submitting Actor
+    │  (agent submits IntentEnvelope to SIP broker)
+    ↓
+SIP Broker
+    │  (envelope validation, capability discovery, negotiation)
+    ↓
+Policy Evaluation
+    │  (checks: submitting actor scopes + trust level,
+    │            originator scopes + trust level,
+    │            authority_scope bounds,
+    │            delegation chain depth and expiry)
+    ↓
+ExecutionPlan
+    │  (produced only if both principals are authorized)
+    ↓
+Execution System
+    (REST | gRPC | MCP | A2A | RAG)
+```
+
+This model prevents intent laundering, where a low-privilege originator causes a more trusted agent to submit an intent that the originator was not permitted to perform directly. See [security-model.md](security-model.md) for the full threat model and mitigation details.
+
+---
+
 ## 6. Core Components
 
 ### IntentEnvelope
@@ -140,7 +185,8 @@ The root protocol object. Carries all information needed to resolve and plan
 an intent: actor identity and trust level, semantic intent payload (name,
 domain, operation class, parameters), desired outcome, constraints (time
 budget, cost budget, determinism level), trust block (scopes, delegation
-chain), protocol binding preferences, and negotiation hints.
+chain), optional provenance block (originator, delegation chain, authority
+scope), protocol binding preferences, and negotiation hints.
 
 ### Capability Registry
 
@@ -165,6 +211,11 @@ Evaluates a fixed set of rules before execution is permitted:
 - **Risk and data sensitivity** — Critical risk combined with restricted data
   is denied.
 - **Delegation depth** — Unbounded delegation chains are prevented.
+- **Provenance validation** — When a `provenance` block is present, the policy
+  engine checks that the submitted intent's scopes do not exceed the
+  originator's `authority_scope`, that the effective trust level is the lower of
+  the submitting actor's and the originator's, and that any `delegation_expiry`
+  has not passed. Delegation must never increase authority.
 
 Policy decisions are always deterministic and rule-based.
 

@@ -125,6 +125,7 @@ The `IntentEnvelope` is the root protocol object for all SIP `intent_request` me
 | `protocol_bindings` | list[ProtocolBinding] | [] | Preferred execution bindings |
 | `negotiation` | NegotiationHints | defaults | Negotiation hints |
 | `integrity` | IntegrityBlock | defaults | Integrity metadata |
+| `provenance` | ProvenanceBlock | null | Intent provenance chain (optional for backward compatibility) |
 
 ### 4.3 ActorDescriptor
 
@@ -157,6 +158,22 @@ The `IntentEnvelope` is the root protocol object for all SIP `intent_request` me
 | `data_sensitivity` | DataSensitivity | `internal` | Max data sensitivity level |
 | `determinism_required` | DeterminismLevel | `strict` | Required determinism level |
 | `priority` | Priority | `normal` | Execution priority |
+
+### 4.6 ProvenanceBlock
+
+The `ProvenanceBlock` enables authorization decisions to consider the full chain of intent mediation rather than only the final submitting actor. All fields are optional within the block; the block itself is optional in the `IntentEnvelope` for SIP v0.1 backward compatibility. Existing envelopes without a `provenance` field remain valid.
+
+| Field | Type | Description |
+|---|---|---|
+| `originator` | string? | Identifier of the entity that originally generated the request or intent (e.g. a user ID or agent ID). |
+| `submitted_by` | string? | Identifier of the actor that submitted this `IntentEnvelope` to the SIP broker. If omitted, the `actor.actor_id` is assumed to be the submitter. |
+| `delegation_chain` | list[string] | Ordered list of actor identifiers representing each delegation hop from the originator to the submitting actor. |
+| `on_behalf_of` | string? | The principal on whose behalf the submitting actor is acting, if different from the originator. |
+| `delegation_purpose` | string? | Human-readable description of why delegation occurred (audit only). |
+| `delegation_expiry` | ISO 8601 datetime? | Optional expiry timestamp after which this delegated authority is no longer valid. Expired delegations must be rejected by the policy engine. |
+| `authority_scope` | list[string]? | The set of scopes that the originator authorized for this delegated action. The policy engine must enforce that the submitted intent does not request scopes outside this set. |
+
+When the `provenance` block is present, the policy engine must validate the full provenance in addition to the submitting actor's trust context. See Section 8, rules 6–8 for the provenance-specific policy evaluation rules.
 
 ---
 
@@ -241,6 +258,11 @@ Policy rules are evaluated in order. First failure wins.
 3. **Risk + sensitivity** – `(CRITICAL, RESTRICTED)` is denied.
 4. **Delegation depth** – Chain length > 5 is denied.
 5. **Capability override** – `requires_human_approval = true` always requires approval.
+6. **Provenance scope check** *(when `provenance` block is present)* – The submitted intent must not request scopes outside the `authority_scope` granted by the originator. If any required capability scope is absent from `authority_scope`, the request is denied.
+7. **Originator trust check** *(when `provenance.originator` is present)* – The effective trust level for authorization is the lower of the submitting actor's `trust_level` and the originator's resolved trust level. A delegated intent cannot gain a higher trust level than the originator possessed.
+8. **Delegation expiry** *(when `provenance.delegation_expiry` is present)* – If the current timestamp is past `delegation_expiry`, the request is denied.
+
+> **Rule: Delegation must never increase authority.** A delegated intent cannot gain additional scopes or a higher trust level than the originator possessed. Any delegation step that would expand authority must be rejected.
 
 ---
 

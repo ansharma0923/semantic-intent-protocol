@@ -6,6 +6,33 @@ SIP's security model is explicit, layered, and deterministic. There are no
 probabilistic security decisions — every policy evaluation is rule-based and
 produces a deterministic allow, deny, or require-approval result.
 
+## Intent Provenance
+
+SIP must track the origin and transformation of an intent across agent mediation. When AI agents translate natural-language user requests into structured `IntentEnvelope` objects, the broker cannot assume that the submitting actor and the originating entity are the same. SIP preserves provenance information so that authorization decisions can consider both the submitting actor and the original requester.
+
+The following roles are defined for provenance tracking:
+
+- **originator** — the entity that originally generated the request or intent (e.g. a human user or an automated system initiating the action).
+- **submitting_actor** — the actor that submits the `IntentEnvelope` to the SIP broker. This may be an AI agent acting on behalf of the originator.
+- **executing_actor** — the capability provider or system that performs execution in response to the approved `ExecutionPlan`.
+- **delegated_by** — the actor that delegated the task to another actor in a delegation chain step.
+
+Provenance information is carried in the optional `provenance` block of the `IntentEnvelope`. When present, the policy engine uses provenance to validate that the originator's authority is consistent with the action being requested, and that no delegation step has silently escalated privileges.
+
+## Intent Laundering
+
+Intent laundering is a security risk in which a low-privilege originator causes a more trusted agent or service to submit an `IntentEnvelope` that appears authorized but represents an action the originator was not permitted to perform.
+
+This can occur when:
+
+- agents translate natural-language requests into structured intents, substituting the agent's trust level and scopes in place of the originator's
+- trusted agents submit requests on behalf of users without preserving the originator's authority constraints
+- delegation chains obscure the origin of authority, making a privileged submission appear legitimate
+
+SIP mitigates this risk by preserving intent provenance and enforcing that delegated authority cannot exceed the authority of the originator. The policy engine must consider both the submitting actor and the originator when evaluating authorization, and any delegation step that would increase the effective authority of the request must be rejected.
+
+> **Note:** Intent laundering is related to identity laundering (the use of stolen or forged credentials to submit requests under a false identity), but occurs at the semantic intent layer rather than the authentication layer. Identity laundering attacks the credential or token; intent laundering attacks the semantic transformation from natural language or low-privilege context into a high-privilege structured intent.
+
 ## Authentication Boundary
 
 SIP does not perform authentication itself. Authentication is expected to occur
@@ -161,8 +188,13 @@ sensitivity level of data involved. Combined with capability risk:
 
 ### 5. Delegation Chain Control
 
-SIP tracks delegation chains in the trust block. If a chain exceeds 5 hops,
-the request is denied to prevent infinite delegation cycles.
+SIP tracks delegation chains in the trust block and, when present, in the `provenance` block. The following rules apply to all delegation:
+
+- **Originator preservation** — the originator must be recorded and preserved throughout the entire provenance chain; no delegation step may omit or alter the originator.
+- **Authority monotonicity** — each delegation step must preserve or reduce authority; **delegation must never increase authority**. A delegated intent cannot gain additional scopes or a higher trust level than the originator possessed.
+- **Bounded chain depth** — if the delegation chain exceeds 5 hops, the request is denied to prevent infinite delegation cycles.
+- **Optional expiration** — delegated authority may optionally include an expiration timestamp (`delegation_expiry`); expired delegations must be rejected.
+- **Dual-principal validation** — policy evaluation must validate that the final action is allowed for both the submitting actor and the originator. If either principal lacks the required authority, the request is denied.
 
 ### 6. Action Constraints
 
@@ -189,6 +221,11 @@ captures:
 - Policy decision (allowed/denied, approval state)
 - Outcome summary
 - Trace ID for correlation
+- **Originator** — the entity that originally generated the intent (from the provenance block if present)
+- **Submitting actor** — the actor that submitted the `IntentEnvelope` to the broker
+- **Delegation chain** — the full delegation chain from the provenance block, enabling security teams to trace how an intent moved through agents and services
+
+Including provenance fields in the audit record allows post-hoc analysis of delegation paths and detection of intent laundering attempts.
 
 Audit records must be written to an append-only log in production deployments.
 
@@ -197,10 +234,20 @@ Audit records must be written to an append-only log in production deployments.
 ### In Scope
 
 - Unauthorized scope access (mitigated by scope checking)
-- Privilege escalation through delegation (mitigated by delegation depth limit)
+- Privilege escalation through delegation (mitigated by delegation depth limit and authority monotonicity)
+- **Intent laundering through trusted agent mediation** (mitigated by provenance tracking, scope narrowing, trust level enforcement, delegation chain limits, approval workflows, and immutable audit logging)
 - Execution of unsafe operations (mitigated by risk-based approval)
 - Ambiguous intent resolution (mitigated by structured intent + negotiation)
 - LLM prompt injection via natural language fields (mitigated by never executing NL)
+
+Intent laundering arises when semantic transformations across agents cause privilege escalation that would not have been permitted if the originator submitted the intent directly. An AI agent mediating a user's natural-language request may, intentionally or inadvertently, construct an `IntentEnvelope` that carries the agent's elevated scopes rather than the user's constrained scopes. SIP addresses this threat through:
+
+- **Explicit provenance tracking** — the `provenance` block records the originator separately from the submitting actor.
+- **Scope narrowing during delegation** — delegated intents may only use scopes held by the originator; a delegate may not add scopes absent from the originator's grant.
+- **Trust level enforcement** — the effective trust level for policy evaluation is the lower of the submitting actor's and the originator's trust levels.
+- **Delegation chain limits** — chains exceeding 5 hops are denied; bounded chains reduce the surface for laundering through deep intermediary webs.
+- **Approval workflows** — high-risk and critical operations require explicit human approval, providing a manual review gate against laundered escalation.
+- **Immutable audit logging** — full provenance including originator, submitting actor, and delegation chain is captured in every audit record for retrospective analysis.
 
 ### Out of Scope for v0.1
 
