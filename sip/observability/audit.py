@@ -77,6 +77,22 @@ class AuditRecord(BaseModel):
         default="",
         description="Additional notes or error messages.",
     )
+    # Provenance fields – optional to maintain backward compatibility
+    originator: str | None = Field(
+        default=None,
+        description="Identifier of the original intent originator, if provenance is present.",
+    )
+    submitting_actor: str | None = Field(
+        default=None,
+        description=(
+            "Identifier of the actor that submitted the envelope (matches actor_id "
+            "when provenance is absent)."
+        ),
+    )
+    delegation_chain: list[str] = Field(
+        default_factory=list,
+        description="Delegation chain captured from the provenance block, if present.",
+    )
 
     model_config = {"frozen": True}
 
@@ -97,11 +113,18 @@ def create_audit_record(
     approval_state: str = "not_required",
     outcome_summary: OutcomeSummary = OutcomeSummary.SUCCESS,
     notes: str = "",
+    originator: str | None = None,
+    submitting_actor: str | None = None,
+    delegation_chain: list[str] | None = None,
 ) -> AuditRecord:
     """Construct an AuditRecord from named parameters.
 
     All required fields are keyword-only to prevent accidental positional
     argument errors.
+
+    The ``originator``, ``submitting_actor``, and ``delegation_chain`` fields
+    are optional and should be populated from the envelope's ProvenanceBlock
+    when present.
     """
     return AuditRecord(
         trace_id=trace_id,
@@ -118,4 +141,7 @@ def create_audit_record(
         approval_state=approval_state,
         outcome_summary=outcome_summary,
         notes=notes,
+        originator=originator,
+        submitting_actor=submitting_actor,
+        delegation_chain=delegation_chain or [],
     )

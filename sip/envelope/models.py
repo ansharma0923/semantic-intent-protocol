@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -314,6 +314,51 @@ class IntegrityBlock(BaseModel):
     )
 
 
+class ProvenanceBlock(BaseModel):
+    """Provenance and delegation metadata for the intent envelope.
+
+    Captures the originator of an intent and any delegation chain that
+    brought it to the current submitting actor.  All fields are optional
+    to maintain backward compatibility with v0.1 envelopes that do not
+    carry provenance.
+    """
+
+    originator: Optional[str] = Field(
+        default=None,
+        description="Identifier of the entity that originally created the intent.",
+    )
+    submitted_by: Optional[str] = Field(
+        default=None,
+        description="Identifier of the actor that submitted this envelope to the broker.",
+    )
+    delegation_chain: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Ordered list of actor IDs through which authority was delegated, "
+            "from originator to the submitting actor."
+        ),
+    )
+    on_behalf_of: Optional[str] = Field(
+        default=None,
+        description="The principal on whose behalf this intent is being submitted.",
+    )
+    delegation_purpose: Optional[str] = Field(
+        default=None,
+        description="Human-readable description of why authority was delegated.",
+    )
+    delegation_expiry: Optional[datetime] = Field(
+        default=None,
+        description="UTC datetime after which the delegation is no longer valid.",
+    )
+    authority_scope: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "Explicit set of scopes that the delegating actor grants to the "
+            "submitting actor.  Must be a subset of the originator's scopes."
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Root envelope
 # ---------------------------------------------------------------------------
@@ -386,6 +431,14 @@ class IntentEnvelope(BaseModel):
     integrity: IntegrityBlock = Field(
         default_factory=IntegrityBlock,
         description="Integrity and provenance metadata.",
+    )
+    provenance: Optional[ProvenanceBlock] = Field(
+        default=None,
+        description=(
+            "Optional provenance and delegation metadata.  "
+            "When present, the policy engine enforces that delegated authority "
+            "cannot exceed the originator's authority (anti-laundering)."
+        ),
     )
 
     model_config = {"frozen": True}

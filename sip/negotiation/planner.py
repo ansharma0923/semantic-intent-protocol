@@ -92,6 +92,14 @@ class ExecutionPlan(BaseModel):
         description="Whether human approval is required before execution.",
     )
     trace: TraceMetadata = Field(description="Trace metadata.")
+    provenance_summary: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Optional summary of provenance metadata propagated from the envelope. "
+            "Includes originator, submitted_by, and delegation_chain so downstream "
+            "systems can observe the full delegation path."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +233,16 @@ class ExecutionPlanner:
             or cap.constraints.requires_human_approval
         )
 
+        # Build provenance summary if the envelope carries a provenance block
+        provenance_summary: dict[str, Any] | None = None
+        if envelope.provenance is not None:
+            prov = envelope.provenance
+            provenance_summary = {
+                "originator": prov.originator,
+                "submitted_by": prov.submitted_by,
+                "delegation_chain": list(prov.delegation_chain),
+            }
+
         return ExecutionPlan(
             intent_id=envelope.intent_id,
             selected_capability=cap,
@@ -239,4 +257,5 @@ class ExecutionPlanner:
                 span_id=envelope.span_id,
                 intent_id=envelope.intent_id,
             ),
+            provenance_summary=provenance_summary,
         )
