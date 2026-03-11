@@ -19,12 +19,20 @@ Modern software systems face three compounding integration challenges:
 SIP introduces a structured **intent layer** that sits above existing execution protocols:
 
 ```
-Actor → Intent Envelope → SIP Broker → Execution Plan → Deterministic Execution
+User or system
+  → AI agent / LLM proposes IntentEnvelope
+  → SIP broker validates and authorizes the request
+  → SIP produces an ExecutionPlan
+  → execution occurs through REST, gRPC, MCP, A2A, or RAG bindings
 ```
 
 An intent envelope expresses **what** is desired, not **how** to achieve it. SIP negotiates **which capability** should satisfy the intent, evaluates **policy and trust**, and produces a **deterministic execution plan** that is handed to the appropriate execution protocol adapter.
 
 Natural language can be included in the envelope as an annotation for auditing and observability, but it is **never executed directly**.
+
+## Role of AI Agents and LLMs
+
+AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this happens **outside** the SIP protocol layer. SIP itself does not perform LLM inference. SIP acts as a **deterministic control layer** responsible for validation, capability negotiation, authorization, and execution planning. The separation ensures that non-deterministic AI reasoning is kept outside the security boundary, while SIP enforces deterministic, auditable control over what actually executes.
 
 ## Core Principles
 

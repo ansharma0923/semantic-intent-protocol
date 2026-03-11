@@ -175,7 +175,11 @@ def main() -> None:
     print(f"  Step 1 Capability: {result1.audit_record.selected_capability_id}")
     print(f"  Step 2 Capability: {result2.audit_record.selected_capability_id}")
     print(f"  Audit Log Entries: {len(broker.audit_log)}")
-    print(f"  All Deterministic: True (no LLM calls)")
+    print(f"  SIP Pipeline Deterministic: True")
+    print(
+        "  Note: SIP execution planning is deterministic. "
+        "AI or LLM systems may generate intents outside the protocol layer."
+    )
     print()
 
 

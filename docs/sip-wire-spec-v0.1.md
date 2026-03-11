@@ -34,12 +34,21 @@ algorithm, policy evaluation, execution planning, and audit logging.
 ### 1.4 Architectural Model
 
 ```
-Actor → IntentEnvelope → SIP Broker → ExecutionPlan → Deterministic Execution
+User or system
+  → AI agent / LLM proposes IntentEnvelope
+  → SIP broker validates and authorizes the request
+  → SIP produces an ExecutionPlan
+  → execution occurs through REST, gRPC, MCP, A2A, or RAG bindings
 ```
 
 The SIP broker accepts an `IntentEnvelope`, discovers matching capabilities, evaluates policy,
 produces an `ExecutionPlan`, and generates an `AuditRecord`. The execution plan is handed to the
 appropriate execution binding adapter.
+
+AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this happens **outside**
+the SIP protocol layer. SIP itself does not perform LLM inference. SIP acts as a deterministic
+control layer responsible for validation, capability negotiation, authorization, and execution
+planning.
 
 ### 1.5 Relationship to Existing Protocols
 
