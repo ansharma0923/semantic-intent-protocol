@@ -72,6 +72,12 @@ def process_intent(
     intent_domain = envelope.intent.intent_domain
     operation_class = envelope.intent.operation_class.value
 
+    # Extract provenance metadata for audit records
+    prov = envelope.provenance
+    originator = prov.originator if prov else None
+    submitting_actor = prov.submitted_by if prov else None
+    delegation_chain = list(prov.delegation_chain) if prov else []
+
     logger.info(
         "Processing intent: intent_id=%s actor=%s intent=%s",
         intent_id,
@@ -101,6 +107,9 @@ def process_intent(
             policy_allowed=False,
             outcome_summary=OutcomeSummary.ERROR,
             notes="; ".join(validation.errors),
+            originator=originator,
+            submitting_actor=submitting_actor,
+            delegation_chain=delegation_chain,
         )
         return BrokerResult(
             audit_record=audit,
@@ -134,6 +143,9 @@ def process_intent(
             policy_allowed=True,
             outcome_summary=OutcomeSummary.NEEDS_CLARIFICATION,
             notes="; ".join(negotiation.clarification_questions),
+            originator=originator,
+            submitting_actor=submitting_actor,
+            delegation_chain=delegation_chain,
         )
         return BrokerResult(
             audit_record=audit,
@@ -172,6 +184,9 @@ def process_intent(
             policy_allowed=False,
             outcome_summary=OutcomeSummary.DENIED,
             notes="; ".join(policy.policy_notes),
+            originator=originator,
+            submitting_actor=submitting_actor,
+            delegation_chain=delegation_chain,
         )
         return BrokerResult(
             audit_record=audit,
@@ -198,6 +213,9 @@ def process_intent(
             policy_allowed=True,
             outcome_summary=OutcomeSummary.ERROR,
             notes=str(exc),
+            originator=originator,
+            submitting_actor=submitting_actor,
+            delegation_chain=delegation_chain,
         )
         return BrokerResult(
             audit_record=audit,
@@ -231,6 +249,9 @@ def process_intent(
         approval_state=approval_state,
         outcome_summary=outcome,
         notes="; ".join(policy.policy_notes),
+        originator=originator,
+        submitting_actor=submitting_actor,
+        delegation_chain=delegation_chain,
     )
 
     logger.info(

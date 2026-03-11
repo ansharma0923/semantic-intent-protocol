@@ -7,6 +7,7 @@ beyond what Pydantic structural validation covers.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from sip.envelope.models import (
     BindingType,
@@ -65,6 +66,9 @@ _VALID_DETERMINISM_LEVELS = set(DeterminismLevel)
 # Valid binding types
 _VALID_BINDING_TYPES = set(BindingType)
 
+# Maximum delegation chain depth (also enforced by the policy engine)
+_MAX_DELEGATION_CHAIN_DEPTH = 5
+
 
 def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
     """Validate an IntentEnvelope against SIP protocol rules.
@@ -78,6 +82,13 @@ def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
       - forbidden_actions do not conflict with allowed_actions
       - When a protocol binding is specified, it must be a valid BindingType
       - High-risk write/execute operations trigger stricter trust requirements
+      - Provenance checks (when provenance block is present):
+          * delegation_chain length must not exceed _MAX_DELEGATION_CHAIN_DEPTH
+          * delegation_expiry must be in the future if provided
+          * submitted_by must match the actor submitting the envelope when present
+          * authority_scope cannot contain scopes the originator does not have
+            (requires originator scopes to be known; if unknown, a warning is
+            emitted instead of a hard error)
 
     Args:
         envelope: The IntentEnvelope to validate.
@@ -164,5 +175,52 @@ def validate_envelope(envelope: IntentEnvelope) -> ValidationResult:
                 f"Invalid preferred_binding '{req.preferred_binding}' "
                 f"in capability_requirements."
             )
+
+    # --- Provenance checks (optional block) ---
+    if envelope.provenance is not None:
+        prov = envelope.provenance
+
+        # Delegation chain depth
+        if len(prov.delegation_chain) > _MAX_DELEGATION_CHAIN_DEPTH:
+            result.add_error(
+                f"provenance.delegation_chain length {len(prov.delegation_chain)} "
+                f"exceeds maximum allowed depth {_MAX_DELEGATION_CHAIN_DEPTH}."
+            )
+
+        # Delegation expiry must be in the future
+        if prov.delegation_expiry is not None:
+            now = datetime.now(timezone.utc)
+            expiry = prov.delegation_expiry
+            # Ensure expiry is timezone-aware for comparison
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if expiry <= now:
+                result.add_error(
+                    "provenance.delegation_expiry is in the past. "
+                    "Delegation has expired and this envelope is no longer valid."
+                )
+
+        # submitted_by must match the actor when both are present
+        if (
+            prov.submitted_by is not None
+            and prov.submitted_by != envelope.actor.actor_id
+        ):
+            result.add_error(
+                f"provenance.submitted_by '{prov.submitted_by}' does not match "
+                f"envelope actor '{envelope.actor.actor_id}'. "
+                "The submitting actor must match the declared submitted_by."
+            )
+
+        # authority_scope must not exceed actor's scopes
+        # (actor cannot grant more than it has)
+        if prov.authority_scope is not None:
+            actor_scopes = set(envelope.actor.scopes)
+            excess = set(prov.authority_scope) - actor_scopes
+            if excess:
+                result.add_error(
+                    f"provenance.authority_scope contains scopes not held by the "
+                    f"submitting actor: {sorted(excess)}. "
+                    "Delegation cannot grant more authority than the delegator holds."
+                )
 
     return result

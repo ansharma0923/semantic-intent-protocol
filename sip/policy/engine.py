@@ -11,16 +11,31 @@ from __future__ import annotations
 
 import os
 
-from sip.envelope.models import IntentEnvelope
+from sip.envelope.models import IntentEnvelope, TrustLevel
 from sip.negotiation.results import NegotiationResult, PolicyDecisionSummary
 from sip.policy.risk import is_denied_by_risk, requires_approval
 from sip.policy.scopes import check_scopes
+
+# Trust level ordering (shared with validator but kept local to avoid circular imports)
+_TRUST_ORDER = {
+    TrustLevel.PUBLIC: 0,
+    TrustLevel.INTERNAL: 1,
+    TrustLevel.PRIVILEGED: 2,
+    TrustLevel.ADMIN: 3,
+}
 
 
 class PolicyEngine:
     """Evaluates SIP policy for an intent + negotiation result.
 
     Policy rules applied (in order):
+      0. Provenance / anti-laundering: when a ProvenanceBlock is present,
+         compute the effective scope set as the intersection of actor scopes,
+         originator scopes (if known via authority_scope), and authority_scope.
+         Deny if the capability requires a scope outside the effective set.
+         Also deny if the originator's declared trust level is lower than
+         the minimum trust tier required by the capability (privilege
+         escalation via delegation is not permitted).
       1. Scope check: actor must hold all scopes required by the capability.
       2. Risk + operation class: high-risk write/execute may require approval.
       3. Risk + data sensitivity: critical risk + restricted data is denied.
@@ -38,6 +53,30 @@ class PolicyEngine:
             self._enforce_approval = env_val in ("1", "true", "yes")
         else:
             self._enforce_approval = enforce_approval_policy
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_effective_scopes(
+        actor_scopes: list[str],
+        authority_scope: list[str] | None,
+    ) -> set[str]:
+        """Return the effective scope set for a delegated intent.
+
+        The effective set is the intersection of the actor's scopes and the
+        authority_scope granted by the delegating principal.  If no
+        authority_scope is specified the actor's full scope set is used.
+        """
+        effective = set(actor_scopes)
+        if authority_scope is not None:
+            effective &= set(authority_scope)
+        return effective
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     def evaluate(
         self,
@@ -69,20 +108,111 @@ class PolicyEngine:
         allowed = True
         approval_required = False
 
-        # --- 1. Scope check ---
-        actor_scopes = list(envelope.actor.scopes)
-        missing_scopes = check_scopes(cap.required_scopes, actor_scopes)
-        if missing_scopes:
-            denied_scopes = missing_scopes
-            allowed = False
-            notes.append(
-                f"DENY: Actor is missing required scopes: {missing_scopes}."
+        # --- 0. Provenance / anti-laundering checks ---
+        prov = envelope.provenance
+        if prov is not None:
+            # Compute effective scopes (intersection of actor + authority_scope)
+            effective_scopes = self._compute_effective_scopes(
+                list(envelope.actor.scopes),
+                prov.authority_scope,
             )
-        else:
-            if cap.required_scopes:
-                notes.append(f"PASS: All required scopes granted: {cap.required_scopes}.")
+
+            # Check required capability scopes against the effective set
+            missing_via_provenance = [
+                s for s in cap.required_scopes if s not in effective_scopes
+            ]
+            if missing_via_provenance:
+                denied_scopes = missing_via_provenance
+                allowed = False
+                notes.append(
+                    f"DENY: Effective delegated scope set does not include "
+                    f"required scopes: {missing_via_provenance}. "
+                    "Delegation cannot grant more authority than the originator holds."
+                )
             else:
-                notes.append("PASS: No scopes required.")
+                if cap.required_scopes:
+                    notes.append(
+                        f"PASS: All required scopes present in effective delegated "
+                        f"scope set: {cap.required_scopes}."
+                    )
+                else:
+                    notes.append(
+                        "PASS: No scopes required; provenance scope check skipped."
+                    )
+
+            # Privilege-escalation check: originator trust must be >= capability minimum
+            if allowed and prov.originator is not None:
+                # We use the actor's trust level as a proxy for the originator's
+                # trust when we don't have a separate originator registry entry.
+                # The declared_trust_level in the TrustBlock represents what the
+                # envelope claims; if the originator is explicitly named we use
+                # the actor's trust_level (the submitting agent must not have
+                # escalated).
+                #
+                # For a full implementation the originator's trust level would be
+                # looked up from a registry. Here we apply a conservative rule:
+                # the capability's minimum_trust_tier must not exceed what the
+                # declared_trust_level claims for the envelope (which must already
+                # be <= actor trust per validator).
+                #
+                # Defaulting to 0 (PUBLIC) is intentionally safe: if a trust level
+                # is somehow absent from _TRUST_ORDER it is treated as the lowest
+                # tier, which means it will be denied rather than accidentally
+                # granted elevated access.
+                originator_trust_value = _TRUST_ORDER.get(
+                    envelope.trust.declared_trust_level, 0
+                )
+                cap_min_trust_value = _TRUST_ORDER.get(cap.minimum_trust_tier, 0)
+                if originator_trust_value < cap_min_trust_value:
+                    allowed = False
+                    notes.append(
+                        f"DENY: Originator declared trust level "
+                        f"'{envelope.trust.declared_trust_level}' is below the "
+                        f"capability minimum trust tier '{cap.minimum_trust_tier}'. "
+                        "Privilege escalation via delegation is not permitted."
+                    )
+                else:
+                    notes.append(
+                        f"PASS: Originator trust level "
+                        f"'{envelope.trust.declared_trust_level}' meets capability "
+                        f"minimum trust tier '{cap.minimum_trust_tier}'."
+                    )
+        else:
+            # No provenance – use full actor scopes (backward-compatible path)
+            notes.append("INFO: No provenance block; using actor scopes directly.")
+
+        # --- 1. Scope check ---
+        # When provenance is present we already checked the effective scope set
+        # in step 0; if that check passed we run a belt-and-suspenders scope
+        # check here using the same effective set to ensure denied_scopes is
+        # always populated.  When there is no provenance this is the primary
+        # (and only) scope check, using the actor's full scope set directly.
+        # We skip this step only when step 0 already denied the request.
+        if allowed:
+            actor_scopes = list(envelope.actor.scopes)
+            scopes_to_check = (
+                list(
+                    self._compute_effective_scopes(
+                        actor_scopes,
+                        prov.authority_scope if prov else None,
+                    )
+                )
+                if prov
+                else actor_scopes
+            )
+            missing_scopes = check_scopes(cap.required_scopes, scopes_to_check)
+            if missing_scopes:
+                if not denied_scopes:
+                    denied_scopes = missing_scopes
+                allowed = False
+                notes.append(
+                    f"DENY: Actor is missing required scopes: {missing_scopes}."
+                )
+            else:
+                if cap.required_scopes:
+                    notes.append(f"PASS: All required scopes granted: {cap.required_scopes}.")
+                else:
+                    notes.append("PASS: No scopes required.")
 
         # --- 2. Risk + operation class ---
         if allowed:
