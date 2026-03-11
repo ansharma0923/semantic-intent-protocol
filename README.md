@@ -188,7 +188,7 @@ pytest tests/functional/ -v
 |---|---|
 | [docs/overview.md](docs/overview.md) | What SIP is and why it exists |
 | [docs/architecture.md](docs/architecture.md) | Components, data flow, package structure |
-| [docs/protocol-spec-v0.1.md](docs/protocol-spec-v0.1.md) | Full protocol specification |
+| [docs/sip-wire-spec-v0.1.md](docs/sip-wire-spec-v0.1.md) | Full protocol specification |
 | [docs/capability-model.md](docs/capability-model.md) | Capability descriptors and registry |
 | [docs/security-model.md](docs/security-model.md) | Trust, scopes, risk, policy, audit |
 | [docs/examples.md](docs/examples.md) | Walkthrough of example scenarios |
