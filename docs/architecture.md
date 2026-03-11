@@ -12,6 +12,29 @@ layer is responsible for discovering the right capability, evaluating policy,
 and producing an execution plan. Actual execution is delegated to an external
 system via a binding adapter.
 
+AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this
+happens **outside** the SIP protocol layer. SIP itself does not perform LLM
+inference. SIP acts as a **deterministic control layer** — the security boundary
+between AI-generated intent and execution systems — responsible for validation,
+capability negotiation, authorization, and execution planning.
+
+```
+User
+  ↓
+AI Agent / LLM
+  ↓
+IntentEnvelope
+  ↓
+SIP Broker
+  ├─ Envelope Validation
+  ├─ Capability Negotiation
+  ├─ Policy Evaluation
+  └─ ExecutionPlan
+  ↓
+Execution Systems
+  REST | gRPC | MCP | A2A | RAG
+```
+
 This document describes the conceptual architecture of SIP — the design goals,
 system roles, processing pipeline, and component model.
 

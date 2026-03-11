@@ -8,7 +8,7 @@ Expected behavior:
   - Second step: summarize_for_customer via REST, MCP, or A2A
   - Both intents produce execution plans
   - The second intent's trace is linked to the first
-  - Orchestration is fully deterministic (no LLM calls)
+  - Orchestration is fully deterministic (SIP pipeline performs no LLM inference)
 """
 
 from __future__ import annotations
