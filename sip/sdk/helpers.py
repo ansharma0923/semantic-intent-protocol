@@ -104,7 +104,7 @@ def compute_effective_scope_set(envelope: IntentEnvelope) -> frozenset[str]:
     for pre-flight checks before submitting an intent.
 
     Args:
-        envelope: The intent envelope to analyse.
+        envelope: The intent envelope to analyze.
 
     Returns:
         A frozenset of effective scope strings.
@@ -124,7 +124,7 @@ def summarize_provenance(envelope: IntentEnvelope) -> dict[str, Any]:
     an empty dict if the envelope has no provenance block.
 
     Args:
-        envelope: The intent envelope to summarise.
+        envelope: The intent envelope to summarize.
 
     Returns:
         A dictionary with provenance fields, or ``{}`` if no provenance.
