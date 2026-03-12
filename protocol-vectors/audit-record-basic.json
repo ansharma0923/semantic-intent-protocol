@@ -1,0 +1,22 @@
+{
+  "audit_id": "e8f9a0b1-c2d3-e4f5-a6b7-c8d9e0f12345",
+  "timestamp": "2024-01-15T10:00:05Z",
+  "trace_id": "b2c3d4e5-f6a7-8901-bcde-f01234567891",
+  "intent_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "actor_id": "agent-001",
+  "actor_type": "ai_agent",
+  "intent_name": "retrieve_document",
+  "intent_domain": "knowledge_management",
+  "operation_class": "retrieve",
+  "selected_capability_id": "sip.knowledge.retrieve",
+  "selected_binding": "rag",
+  "action_taken": "plan_created",
+  "policy_allowed": true,
+  "approval_state": "not_required",
+  "outcome_summary": "success",
+  "notes": "",
+  "originator": null,
+  "submitting_actor": null,
+  "delegation_chain": [],
+  "extensions": {}
+}

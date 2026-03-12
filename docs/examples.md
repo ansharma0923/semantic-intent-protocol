@@ -170,3 +170,44 @@ Each example prints:
 
 None of the examples make real network calls. The execution payloads are
 deterministic specifications ready to hand to actual executors.
+
+
+## Protocol Vectors
+
+The [`protocol-vectors/`](../protocol-vectors/) directory contains canonical JSON examples for all core SIP protocol objects:
+
+```bash
+# Inspect a protocol vector
+cat protocol-vectors/intent-envelope-basic.json
+
+# Run the Python vector tests
+pytest tests/protocol_vectors/ -v
+```
+
+These vectors serve as the ground truth for cross-SDK compatibility. See [`protocol-vectors/README.md`](../protocol-vectors/README.md) for details.
+
+## Cross-Broker Discovery
+
+The [`examples/distributed_brokers_demo.py`](../examples/distributed_brokers_demo.py) demonstrates cross-broker capability discovery using the federation model.
+
+The [`tests/interoperability/`](../tests/interoperability/) directory contains integration tests for multi-broker scenarios including remote discovery, peer unavailability handling, provenance preservation, and policy enforcement across brokers:
+
+```bash
+pytest tests/interoperability/ -v
+```
+
+## Go SDK
+
+The [`sdk/go/`](../sdk/go/) directory provides a Go implementation of SIP protocol types and an HTTP client for the broker API.
+
+Run Go SDK tests:
+
+```bash
+cd sdk/go && go test ./tests/... -v
+```
+
+Run the basic usage example (dry-run, no broker required):
+
+```bash
+cd sdk/go && go run examples/basic_usage.go -dry-run
+```

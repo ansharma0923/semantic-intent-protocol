@@ -287,6 +287,18 @@ pytest tests/functional/ -v
 | [docs/capability-model.md](docs/capability-model.md) | Capability descriptors and registry |
 | [docs/security-model.md](docs/security-model.md) | Trust, scopes, risk, policy, audit |
 | [docs/examples.md](docs/examples.md) | Walkthrough of example scenarios |
+| [docs/python-sdk.md](docs/python-sdk.md) | Python SDK reference guide |
+| [docs/governance.md](docs/governance.md) | Protocol governance, versioning, and compatibility |
+
+## Ecosystem
+
+| Resource | Description |
+|---|---|
+| [protocol-vectors/](protocol-vectors/) | Canonical JSON fixtures for SIP v0.1 protocol objects |
+| [tests/protocol_vectors/](tests/protocol_vectors/) | Python tests validating all protocol vectors |
+| [tests/interoperability/](tests/interoperability/) | Multi-broker interoperability tests |
+| [sdk/go/](sdk/go/) | Go SDK — types, constructors, and HTTP client |
+| [sdk/go/examples/](sdk/go/examples/) | Go SDK usage examples |
 
 ---
 
@@ -302,9 +314,13 @@ pytest tests/functional/ -v
 - REST, gRPC, MCP, A2A, RAG adapters
 - BrokerService with full pipeline
 - Audit records and structured logging
-- 151 unit and functional tests
+- 151+ unit and functional tests
+- Protocol vectors for cross-SDK compatibility testing
+- Broker interoperability tests
+- Go SDK with JSON serialization and HTTP client
 - 4 runnable example workflows
 - Optional FastAPI broker API
+- Protocol governance documentation
 
 ### v0.2 (planned)
 - Envelope signing and verification (integrity block)

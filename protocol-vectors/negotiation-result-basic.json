@@ -1,0 +1,121 @@
+{
+  "intent_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "ranked_candidates": [
+    {
+      "capability": {
+        "capability_id": "sip.knowledge.retrieve",
+        "name": "Knowledge Retrieval",
+        "description": "Retrieves semantically relevant documents from the enterprise knowledge base.",
+        "provider": {
+          "provider_id": "knowledge_service",
+          "provider_name": "Enterprise Knowledge Service",
+          "contact": null,
+          "version": "1.2.0",
+          "documentation_url": "https://internal.example.com/docs/knowledge"
+        },
+        "intent_domains": ["knowledge_management", "research"],
+        "input_schema": {
+          "schema_id": "sip.knowledge.retrieve.input.v1",
+          "description": "Input parameters for knowledge retrieval",
+          "properties": {
+            "query": "string",
+            "top_k": "integer"
+          },
+          "required_fields": ["query"]
+        },
+        "output_schema": {
+          "schema_id": "sip.knowledge.retrieve.output.v1",
+          "description": "Ranked list of relevant documents",
+          "properties": {
+            "documents": "array",
+            "total_found": "integer"
+          },
+          "required_fields": ["documents"]
+        },
+        "operation_class": "retrieve",
+        "risk_level": "low",
+        "required_scopes": ["sip.knowledge.read"],
+        "minimum_trust_tier": "internal",
+        "supported_bindings": ["rag", "rest"],
+        "execution": {
+          "average_latency_ms": 250,
+          "idempotent": true,
+          "supports_dry_run": false,
+          "max_retries": 3
+        },
+        "constraints": {
+          "rate_limit_per_minute": 100,
+          "requires_human_approval": false,
+          "allowed_environments": ["production", "staging"]
+        },
+        "examples": [],
+        "tags": ["knowledge", "retrieval", "rag"],
+        "extensions": {}
+      },
+      "score": 0.95,
+      "rationale": "exact intent name match; domain match; operation class match; supports preferred binding 'rag'; score=0.95"
+    }
+  ],
+  "selected_capability": {
+    "capability_id": "sip.knowledge.retrieve",
+    "name": "Knowledge Retrieval",
+    "description": "Retrieves semantically relevant documents from the enterprise knowledge base.",
+    "provider": {
+      "provider_id": "knowledge_service",
+      "provider_name": "Enterprise Knowledge Service",
+      "contact": null,
+      "version": "1.2.0",
+      "documentation_url": "https://internal.example.com/docs/knowledge"
+    },
+    "intent_domains": ["knowledge_management", "research"],
+    "input_schema": {
+      "schema_id": "sip.knowledge.retrieve.input.v1",
+      "description": "Input parameters for knowledge retrieval",
+      "properties": {
+        "query": "string",
+        "top_k": "integer"
+      },
+      "required_fields": ["query"]
+    },
+    "output_schema": {
+      "schema_id": "sip.knowledge.retrieve.output.v1",
+      "description": "Ranked list of relevant documents",
+      "properties": {
+        "documents": "array",
+        "total_found": "integer"
+      },
+      "required_fields": ["documents"]
+    },
+    "operation_class": "retrieve",
+    "risk_level": "low",
+    "required_scopes": ["sip.knowledge.read"],
+    "minimum_trust_tier": "internal",
+    "supported_bindings": ["rag", "rest"],
+    "execution": {
+      "average_latency_ms": 250,
+      "idempotent": true,
+      "supports_dry_run": false,
+      "max_retries": 3
+    },
+    "constraints": {
+      "rate_limit_per_minute": 100,
+      "requires_human_approval": false,
+      "allowed_environments": ["production", "staging"]
+    },
+    "examples": [],
+    "tags": ["knowledge", "retrieval", "rag"],
+    "extensions": {}
+  },
+  "selection_rationale": "Highest scoring capability match for 'retrieve_document' in knowledge_management domain",
+  "requires_clarification": false,
+  "clarification_questions": [],
+  "allowed_bindings": ["rag", "rest"],
+  "selected_binding": "rag",
+  "policy_decision": {
+    "allowed": true,
+    "requires_approval": false,
+    "denied_scopes": [],
+    "policy_notes": ["All policy checks passed"]
+  },
+  "extensions": {}
+}

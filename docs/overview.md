@@ -92,3 +92,28 @@ The following capabilities have been added to evolve the SIP reference implement
 
 The protocol specification is at v0.1 and should be considered a working draft open for community feedback.
 
+---
+
+## Ecosystem Capabilities
+
+### Protocol Vectors
+
+Canonical JSON fixtures for all core SIP protocol objects are available in [`protocol-vectors/`](../protocol-vectors/). These serve as the ground truth for validating implementations across languages and runtimes. Every SDK must be able to parse and round-trip all vectors without data loss.
+
+### Interoperability Tests
+
+Distributed broker interoperability tests are available in [`tests/interoperability/`](../tests/interoperability/). These tests verify:
+- Local and remote capability discovery across multiple brokers
+- Deterministic result aggregation
+- Graceful handling of unavailable peers
+- Provenance preservation across broker boundaries
+- Policy enforcement on remote capabilities
+
+### Go SDK
+
+A Go language SDK implementing all core SIP protocol types and HTTP client support is available in [`sdk/go/`](../sdk/go/). The Go SDK is compatible with the canonical protocol vectors.
+
+### Governance
+
+The protocol governance model—including versioning policy, extension namespace rules, compatibility guarantees, and security review requirements—is documented in [`docs/governance.md`](governance.md).
+
