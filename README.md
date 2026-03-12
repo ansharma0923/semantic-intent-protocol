@@ -66,6 +66,8 @@ semantic-intent-protocol/
 
 ## Quick Start
 
+> **New to SIP?** Start with the [docs/quickstart.md](docs/quickstart.md) guide for a step-by-step walkthrough.
+
 ### 1. Create a virtual environment
 
 ```bash
@@ -100,7 +102,22 @@ python examples/multi_agent_collaboration.py
 make run-examples
 ```
 
-### 5. Start the broker API (optional)
+### 5. Run the end-to-end demo
+
+```bash
+# Python in-process demo (no server required)
+python examples/end_to_end_demo/python_client_demo.py
+
+# Broker federation demo (two in-process brokers)
+python examples/end_to_end_demo/broker_federation_demo.py
+
+# Go SDK dry-run demo
+cd sdk/go/examples && go run federation_demo.go -dry-run
+```
+
+See [examples/end_to_end_demo/demo_overview.md](examples/end_to_end_demo/demo_overview.md) for the full demo architecture.
+
+### 6. Start the broker API (optional)
 
 ```bash
 make broker
@@ -281,14 +298,17 @@ pytest tests/functional/ -v
 
 | Document | Description |
 |---|---|
+| [docs/quickstart.md](docs/quickstart.md) | **Getting started guide** — start here |
 | [docs/overview.md](docs/overview.md) | What SIP is and why it exists |
 | [docs/architecture.md](docs/architecture.md) | Components, data flow, package structure |
 | [docs/sip-wire-spec-v0.1.md](docs/sip-wire-spec-v0.1.md) | Full protocol specification |
 | [docs/capability-model.md](docs/capability-model.md) | Capability descriptors and registry |
 | [docs/security-model.md](docs/security-model.md) | Trust, scopes, risk, policy, audit |
-| [docs/examples.md](docs/examples.md) | Walkthrough of example scenarios |
+| [docs/examples-walkthrough.md](docs/examples-walkthrough.md) | Guided walkthrough of all examples |
+| [docs/examples.md](docs/examples.md) | Example scenario index |
 | [docs/python-sdk.md](docs/python-sdk.md) | Python SDK reference guide |
 | [docs/governance.md](docs/governance.md) | Protocol governance, versioning, and compatibility |
+| [docs/releases/v0.1.1.md](docs/releases/v0.1.1.md) | v0.1.1 release notes |
 
 ## Ecosystem
 
@@ -298,7 +318,8 @@ pytest tests/functional/ -v
 | [tests/protocol_vectors/](tests/protocol_vectors/) | Python tests validating all protocol vectors |
 | [tests/interoperability/](tests/interoperability/) | Multi-broker interoperability tests |
 | [sdk/go/](sdk/go/) | Go SDK — types, constructors, and HTTP client |
-| [sdk/go/examples/](sdk/go/examples/) | Go SDK usage examples |
+| [sdk/go/examples/](sdk/go/examples/) | Go SDK usage examples (basic + federation) |
+| [examples/end_to_end_demo/](examples/end_to_end_demo/) | End-to-end multi-SDK demo (Python + Go + federation) |
 
 ---
 
