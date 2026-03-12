@@ -109,6 +109,101 @@ make broker
 
 ---
 
+## Python SDK Quick Start
+
+The `sip.sdk` module provides a clean public API for building Python
+applications on top of SIP.
+
+### Install
+
+```bash
+pip install semantic-intent-protocol
+```
+
+### Import from `sip.sdk`
+
+```python
+from sip.sdk import (
+    IntentEnvelope,
+    CapabilityDescriptor,
+    NegotiationResult,
+    ExecutionPlan,
+    AuditRecord,
+    BrokerClient,
+    CapabilityDiscoveryClient,
+    validate_envelope,
+    build_actor,
+    build_intent_envelope,
+    build_provenance,
+    to_dict,
+    to_json,
+    parse_intent_envelope,
+)
+```
+
+### Create an envelope
+
+```python
+from sip.sdk import build_actor, build_intent_envelope
+
+actor = build_actor(
+    actor_id="my-service",
+    name="My Service",
+    scopes=["sip:knowledge:read"],
+)
+envelope = build_intent_envelope(
+    actor=actor,
+    intent_name="retrieve_document",
+    intent_domain="knowledge_management",
+    operation_class="retrieve",
+    outcome_summary="Get the architecture document.",
+)
+```
+
+### Validate and serialize
+
+```python
+from sip.sdk import validate_envelope, to_json, parse_intent_envelope
+
+result = validate_envelope(envelope)
+print(result.valid)           # True
+
+json_str = to_json(envelope)
+restored = parse_intent_envelope(json_str)
+assert restored.intent_id == envelope.intent_id
+```
+
+### Submit to a broker
+
+```python
+from sip.sdk import BrokerClient
+from sip.sdk.errors import SIPHTTPError
+
+client = BrokerClient("http://localhost:8000")
+health = client.health()         # {"status": "ok", "capabilities": N}
+
+try:
+    result = client.submit_intent(envelope)
+    print(result["action_taken"])   # e.g. "plan_created"
+except SIPHTTPError as exc:
+    print(f"HTTP {exc.status_code}: {exc.response_body}")
+```
+
+### Discover capabilities
+
+```python
+from sip.sdk import CapabilityDiscoveryClient
+
+discovery = CapabilityDiscoveryClient("http://localhost:8000")
+caps = discovery.list_capabilities()
+for cap in caps:
+    print(f"{cap.capability_id}: {cap.name}")
+```
+
+See [docs/python-sdk.md](docs/python-sdk.md) for the full SDK reference.
+
+---
+
 ## Example Usage
 
 ```python
