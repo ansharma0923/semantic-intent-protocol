@@ -1,0 +1,86 @@
+{
+  "sip_version": "0.1",
+  "message_type": "intent_request",
+  "intent_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "trace_id": "b2c3d4e5-f6a7-8901-bcde-f01234567891",
+  "span_id": "c3d4e5f6-a7b8-9012-cdef-012345678902",
+  "timestamp": "2024-01-15T10:00:00Z",
+  "actor": {
+    "actor_id": "agent-001",
+    "actor_type": "ai_agent",
+    "name": "Research Assistant",
+    "trust_level": "internal",
+    "scopes": ["sip.knowledge.read", "sip.knowledge.retrieve"]
+  },
+  "target": {
+    "target_type": "capability",
+    "target_id": null,
+    "namespace": "knowledge_management"
+  },
+  "intent": {
+    "intent_name": "retrieve_document",
+    "intent_domain": "knowledge_management",
+    "operation_class": "retrieve",
+    "natural_language_hint": "Find documents about quarterly financial results",
+    "parameters": {
+      "query": "Q4 2023 financial results",
+      "top_k": 5,
+      "format": "json"
+    }
+  },
+  "desired_outcome": {
+    "summary": "Return top-5 relevant documents matching the financial query",
+    "output_format": "json",
+    "success_criteria": [
+      "At least one document returned",
+      "Documents ranked by relevance score"
+    ]
+  },
+  "constraints": {
+    "time_budget_ms": 3000,
+    "cost_budget": null,
+    "allowed_actions": ["read", "retrieve"],
+    "forbidden_actions": ["write", "delete"],
+    "data_sensitivity": "internal",
+    "determinism_required": "strict",
+    "priority": "normal"
+  },
+  "context": {
+    "session_id": "sess-abc123",
+    "user_locale": "en-US",
+    "environment": "production",
+    "additional": {}
+  },
+  "capability_requirements": [
+    {
+      "capability_name": "sip.knowledge.retrieve",
+      "required_scopes": ["sip.knowledge.read"],
+      "preferred_binding": "rag",
+      "minimum_trust_tier": "internal"
+    }
+  ],
+  "trust": {
+    "declared_trust_level": "internal",
+    "delegation_chain": [],
+    "token_reference": null
+  },
+  "protocol_bindings": [
+    {
+      "binding_type": "rag",
+      "endpoint": null,
+      "metadata": {}
+    }
+  ],
+  "negotiation": {
+    "candidate_capabilities": ["sip.knowledge.retrieve"],
+    "allow_fallback": true,
+    "max_candidates": 5
+  },
+  "integrity": {
+    "schema_version": "0.1",
+    "signed": false,
+    "signature_reference": null
+  },
+  "provenance": null,
+  "extensions": {}
+}

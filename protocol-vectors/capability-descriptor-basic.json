@@ -1,0 +1,63 @@
+{
+  "capability_id": "sip.knowledge.retrieve",
+  "name": "Knowledge Retrieval",
+  "description": "Retrieves semantically relevant documents from the enterprise knowledge base using vector similarity search.",
+  "provider": {
+    "provider_id": "knowledge_service",
+    "provider_name": "Enterprise Knowledge Service",
+    "contact": "knowledge-team@example.com",
+    "version": "1.2.0",
+    "documentation_url": "https://internal.example.com/docs/knowledge"
+  },
+  "intent_domains": ["knowledge_management", "research", "information_retrieval"],
+  "input_schema": {
+    "schema_id": "sip.knowledge.retrieve.input.v1",
+    "description": "Input parameters for knowledge retrieval",
+    "properties": {
+      "query": "string",
+      "top_k": "integer",
+      "format": "string"
+    },
+    "required_fields": ["query"]
+  },
+  "output_schema": {
+    "schema_id": "sip.knowledge.retrieve.output.v1",
+    "description": "Ranked list of relevant documents",
+    "properties": {
+      "documents": "array",
+      "total_found": "integer",
+      "query_time_ms": "integer"
+    },
+    "required_fields": ["documents", "total_found"]
+  },
+  "operation_class": "retrieve",
+  "risk_level": "low",
+  "required_scopes": ["sip.knowledge.read"],
+  "minimum_trust_tier": "internal",
+  "supported_bindings": ["rag", "rest"],
+  "execution": {
+    "average_latency_ms": 250,
+    "idempotent": true,
+    "supports_dry_run": false,
+    "max_retries": 3
+  },
+  "constraints": {
+    "rate_limit_per_minute": 100,
+    "requires_human_approval": false,
+    "allowed_environments": ["production", "staging", "development"]
+  },
+  "examples": [
+    {
+      "name": "basic_text_query",
+      "description": "Simple text-based knowledge retrieval",
+      "parameters": {
+        "query": "cloud security best practices",
+        "top_k": 5,
+        "format": "json"
+      },
+      "expected_output_summary": "Returns top-5 documents about cloud security"
+    }
+  ],
+  "tags": ["knowledge", "retrieval", "rag", "semantic-search"],
+  "extensions": {}
+}

@@ -377,3 +377,19 @@ Internal implementation modules in `sip/envelope/`, `sip/registry/`,
 `sip/negotiation/`, `sip/policy/`, `sip/observability/`, `sip/broker/`, and
 `sip/translator/` remain available for direct use but are considered internal.
 The `sip.sdk` namespace is the recommended public interface.
+
+---
+
+## Protocol Vector Compatibility
+
+The Python SDK must pass all tests in [`tests/protocol_vectors/`](../tests/protocol_vectors/). These tests load the canonical JSON fixtures from [`protocol-vectors/`](../protocol-vectors/) and verify that:
+
+1. Each vector parses without errors into the corresponding protocol model.
+2. Round-trip serialization (`to_dict` → `parse_*`) produces an object equal to the original.
+3. All required fields are preserved.
+
+```bash
+pytest tests/protocol_vectors/ -v
+```
+
+See [`docs/governance.md`](governance.md) for the full SDK compatibility expectations.

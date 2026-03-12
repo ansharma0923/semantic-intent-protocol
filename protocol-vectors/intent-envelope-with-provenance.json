@@ -1,0 +1,104 @@
+{
+  "sip_version": "0.1",
+  "message_type": "intent_request",
+  "intent_id": "d4e5f6a7-b8c9-0123-defa-b01234567893",
+  "trace_id": "e5f6a7b8-c9d0-1234-efab-c01234567894",
+  "span_id": "f6a7b8c9-d0e1-2345-fabc-d01234567895",
+  "timestamp": "2024-01-15T11:30:00Z",
+  "actor": {
+    "actor_id": "orchestrator-agent-007",
+    "actor_type": "ai_agent",
+    "name": "Orchestration Agent",
+    "trust_level": "privileged",
+    "scopes": ["sip.knowledge.read", "sip.knowledge.retrieve", "sip.agent.delegate"]
+  },
+  "target": {
+    "target_type": "capability",
+    "target_id": null,
+    "namespace": "knowledge_management"
+  },
+  "intent": {
+    "intent_name": "retrieve_document",
+    "intent_domain": "knowledge_management",
+    "operation_class": "retrieve",
+    "natural_language_hint": "Retrieve policy documents on behalf of the research user",
+    "parameters": {
+      "query": "data retention policy 2024",
+      "top_k": 3,
+      "format": "markdown"
+    }
+  },
+  "desired_outcome": {
+    "summary": "Return top-3 policy documents relevant to data retention",
+    "output_format": "markdown",
+    "success_criteria": [
+      "Documents returned with relevance score >= 0.7",
+      "Originator identity preserved in audit trail"
+    ]
+  },
+  "constraints": {
+    "time_budget_ms": 5000,
+    "cost_budget": null,
+    "allowed_actions": ["read", "retrieve"],
+    "forbidden_actions": ["write", "delete"],
+    "data_sensitivity": "internal",
+    "determinism_required": "strict",
+    "priority": "normal"
+  },
+  "context": {
+    "session_id": "sess-xyz789",
+    "user_locale": "en-US",
+    "environment": "production",
+    "additional": {
+      "request_source": "research_portal"
+    }
+  },
+  "capability_requirements": [
+    {
+      "capability_name": "sip.knowledge.retrieve",
+      "required_scopes": ["sip.knowledge.read"],
+      "preferred_binding": "rag",
+      "minimum_trust_tier": "internal"
+    }
+  ],
+  "trust": {
+    "declared_trust_level": "privileged",
+    "delegation_chain": ["user-researcher-042", "orchestrator-agent-007"],
+    "token_reference": null
+  },
+  "protocol_bindings": [
+    {
+      "binding_type": "rag",
+      "endpoint": null,
+      "metadata": {}
+    },
+    {
+      "binding_type": "rest",
+      "endpoint": null,
+      "metadata": {}
+    }
+  ],
+  "negotiation": {
+    "candidate_capabilities": ["sip.knowledge.retrieve"],
+    "allow_fallback": true,
+    "max_candidates": 3
+  },
+  "integrity": {
+    "schema_version": "0.1",
+    "signed": false,
+    "signature_reference": null
+  },
+  "provenance": {
+    "originator": "user-researcher-042",
+    "submitted_by": "orchestrator-agent-007",
+    "delegation_chain": ["user-researcher-042", "orchestrator-agent-007"],
+    "on_behalf_of": "user-researcher-042",
+    "delegation_purpose": "Automated knowledge retrieval on behalf of human researcher",
+    "delegation_expiry": "2024-01-15T23:59:59Z",
+    "authority_scope": ["sip.knowledge.read", "sip.knowledge.retrieve"]
+  },
+  "extensions": {
+    "x_routing_hint": "prefer-local",
+    "acme.priority_boost": false
+  }
+}
