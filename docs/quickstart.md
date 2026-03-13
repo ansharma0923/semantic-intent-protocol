@@ -6,18 +6,25 @@ Welcome to the **Semantic Intent Protocol (SIP)**. This guide gets you from zero
 
 ## What SIP Does
 
-SIP is a semantic negotiation layer that sits between an intent-expressing actor (a user, AI agent, or service) and the execution systems that carry out the work.
+SIP is a **deterministic control plane protocol** that sits between intent-producing systems (AI agents, software systems) and the execution systems that carry out the work.
+
+The basic mental model:
+
+1. An AI agent or software system proposes an `IntentEnvelope`
+2. SIP validates and authorizes it
+3. SIP returns a `NegotiationResult` and `ExecutionPlan`
+4. External systems execute the action
 
 ```
-AI Agent / User
+AI Agent / Software System
        ↓
  IntentEnvelope  ← structured, typed intent
        ↓
-  SIP Broker     ← validates, negotiates capability, enforces policy
+  SIP Control Plane  ← validates, negotiates capability, enforces policy
        ↓
- ExecutionPlan   ← deterministic, fully specified plan
+  ExecutionPlan   ← deterministic, fully specified plan
        ↓
- Adapter → REST / gRPC / MCP / A2A / RAG executor
+  external execution system (REST / gRPC / MCP / A2A / RAG)
 ```
 
 **Key guarantees:**

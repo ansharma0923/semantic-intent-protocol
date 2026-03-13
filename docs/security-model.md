@@ -2,9 +2,9 @@
 
 ## Design Philosophy
 
-SIP's security model is explicit, layered, and deterministic. There are no
-probabilistic security decisions — every policy evaluation is rule-based and
-produces a deterministic allow, deny, or require-approval result.
+SIP's security model is designed for a **deterministic control plane**. It is explicit, layered, and rule-based. There are no probabilistic security decisions — every policy evaluation is deterministic and produces an allow, deny, or require-approval result.
+
+Because SIP sits between intent-producing systems (AI agents, software systems) and execution systems, it is the critical authorization boundary. All security decisions are made inside the control plane before any execution plan is produced.
 
 ## Intent Provenance
 

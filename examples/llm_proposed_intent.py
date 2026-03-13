@@ -1,8 +1,8 @@
 """Example: LLM-Proposed Intent.
 
 This example illustrates the architecture pattern where an AI agent or LLM
-proposes an IntentEnvelope, and SIP performs deterministic validation,
-authorization, and execution planning.
+proposes an IntentEnvelope, and the SIP control plane performs deterministic
+validation, authorization, and execution planning.
 
 Architecture:
     User
@@ -11,16 +11,16 @@ Architecture:
       ↓
     IntentEnvelope  (constructed to represent an LLM-generated proposal)
       ↓
-    SIP Broker
+    SIP Control Plane
       ├─ Envelope Validation
       ├─ Capability Negotiation
       ├─ Policy Evaluation
       └─ ExecutionPlan
       ↓
-    Execution Systems
+    Execution Systems (outside SIP)
       REST | gRPC | MCP | A2A | RAG
 
-SIP does not perform LLM inference. SIP acts as a deterministic control layer
+SIP does not perform LLM inference. SIP acts as a deterministic control plane
 responsible for validation, capability negotiation, authorization, and
 execution planning. The LLM step shown here is a simulation only.
 

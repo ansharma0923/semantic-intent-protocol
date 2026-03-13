@@ -12,10 +12,11 @@ This document is the normative protocol specification for SIP v0.1. All protocol
 
 ### 1.1 Purpose
 
-SIP (Semantic Intent Protocol) is a semantic interoperability protocol for AI agents and software
-systems. It standardises how systems express semantic intent, negotiate capabilities, apply trust
-and policy controls, and translate requests into deterministic execution through existing protocols
-such as REST, gRPC, MCP, A2A, and retrieval systems.
+SIP (Semantic Intent Protocol) is a deterministic control plane protocol for AI agents and software systems.
+It converts semantic intent into validated, authorized execution plans before actions are executed in external systems.
+SIP standardises how systems express semantic intent, negotiate capabilities, apply trust and policy controls,
+and translate requests into deterministic execution through existing protocols such as REST, gRPC, MCP, A2A,
+and retrieval systems.
 
 ### 1.2 Scope
 

@@ -1,31 +1,80 @@
 # Semantic Intent Protocol (SIP)
 
-**SIP is an open semantic interoperability protocol for AI agents and software systems.**
+**Semantic Intent Protocol (SIP) is a deterministic control plane protocol for AI agents and software systems.**
 
-SIP standardizes how systems express semantic intent, negotiate capabilities, apply trust and policy controls, and translate requests into deterministic execution through existing protocols such as REST, gRPC, MCP, A2A, and retrieval systems.
+SIP converts semantic intent into validated, authorized execution plans before actions are executed in external systems. It sits between AI agents or software systems and the execution systems they interact with, providing a structured negotiation, authorization, and planning layer.
+
+SIP complements AI frameworks, APIs, and execution runtimes by providing a security-aware negotiation and planning layer between them.
 
 > **Status**: Private development, v0.1 working draft.
 > Future public open source release planned.
 
 ---
 
+## What SIP Is
+
+SIP is a **deterministic control plane protocol** that:
+
+- Sits between AI agents / software systems and execution systems
+- Validates and type-checks semantic intent before any action occurs
+- Negotiates which registered capability should satisfy the intent
+- Enforces scope, trust, risk, and delegation policy deterministically
+- Produces a fully specified `ExecutionPlan` — external systems carry out the plan
+
+```
+Agents / Systems
+      ↓
+IntentEnvelope
+      ↓
+SIP Control Plane
+  - validation
+  - negotiation
+  - authorization
+  - planning
+      ↓
+Execution Systems
+  REST | gRPC | MCP | A2A | RAG
+```
+
+**Natural language is never executed directly.** It may appear as an audit annotation, but it has no operational effect.
+
+---
+
+## What SIP Is Not
+
+- **Not an LLM or AI model** — SIP contains no inference engine; all logic is rule-based and deterministic.
+- **Not an agent framework** — Agent frameworks may propose intents; SIP validates and authorizes them.
+- **Not a workflow engine** — SIP does not schedule, sequence, or orchestrate tasks over time.
+- **Not a transport replacement** — REST, gRPC, MCP, A2A, and RAG remain the execution transports. SIP sits above them.
+- **Not a direct execution engine** — SIP produces plans; external systems execute them.
+
+---
+
+## Where SIP Fits
+
+SIP complements rather than replaces existing categories:
+
+| Category | Relationship to SIP |
+|---|---|
+| AI agent frameworks | May create or propose `IntentEnvelope` objects submitted to SIP |
+| Workflow engines | May receive `ExecutionPlan` results from SIP to trigger downstream steps |
+| Tool invocation protocols (MCP, A2A) | Serve as execution bindings that SIP delegates to |
+| REST / gRPC APIs | Execution targets that SIP produces plans for |
+| Retrieval systems (RAG) | Execution binding for knowledge retrieval intents |
+
+SIP does not compete with these systems — it provides the deterministic control plane layer that sits between intent-producing systems and execution systems.
+
+---
+
 ## Why SIP Exists
 
-Modern software systems suffer from three compounding integration problems:
+Modern software systems face three compounding integration problems:
 
 1. **API explosion** — Every system has its own API, schema, and auth model. N systems = N integrations.
 2. **Schema coupling** — Systems are tightly coupled to the schemas of APIs they call. Schema changes break consumers.
 3. **LLM ambiguity** — Natural language is expressive but too ambiguous and unpredictable for safe direct execution.
 
-SIP's answer is a structured **intent layer** that sits above existing execution protocols:
-
-```
-Actor → Intent Envelope → SIP Broker → Negotiation → Policy → Execution Plan → Adapter → Executor
-```
-
-SIP never replaces REST, gRPC, MCP, or any execution protocol. It sits above them as a semantic negotiation and translation layer.
-
-**Natural language is never executed directly.** It may appear as an annotation for auditing, but it has no operational effect.
+SIP's answer is a **deterministic control plane** that sits above existing execution protocols, converting semantic intent into validated, authorized execution plans before any external system is touched.
 
 ---
 
@@ -129,7 +178,7 @@ make broker
 ## Python SDK Quick Start
 
 The `sip.sdk` module provides a clean public API for building Python
-applications on top of SIP.
+applications on top of the SIP control plane.
 
 ### Install
 

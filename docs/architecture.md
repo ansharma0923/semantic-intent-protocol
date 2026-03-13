@@ -2,36 +2,24 @@
 
 ## 1. Overview
 
-The Semantic Intent Protocol (SIP) is a protocol for expressing, routing, and
-executing semantic intents across heterogeneous execution environments. Rather
-than coupling actors directly to specific APIs or transport protocols, SIP
-introduces a structured intent layer that sits above execution systems.
+The Semantic Intent Protocol (SIP) is a **deterministic control plane protocol** for AI agents and software systems. Rather than coupling actors directly to specific APIs or transport protocols, SIP provides a structured control plane that sits above execution systems and below AI agent reasoning layers.
 
-Actors express *what* they want to achieve through an `IntentEnvelope`. The SIP
-layer is responsible for discovering the right capability, evaluating policy,
-and producing an execution plan. Actual execution is delegated to an external
-system via a binding adapter.
+Actors express *what* they want to achieve through an `IntentEnvelope`. The SIP control plane is responsible for discovering the right capability, evaluating policy, and producing a deterministic execution plan. Actual execution is delegated to an external system via a binding adapter — execution systems remain outside the SIP control plane.
 
-AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this
-happens **outside** the SIP protocol layer. SIP itself does not perform LLM
-inference. SIP acts as a **deterministic control layer** — the security boundary
-between AI-generated intent and execution systems — responsible for validation,
-capability negotiation, authorization, and execution planning.
+AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this happens **outside** the SIP protocol layer. SIP itself does not perform LLM inference. SIP acts as the **deterministic control plane** — the security boundary between AI-generated intent and execution systems — responsible for validation, capability negotiation, authorization, and execution planning.
 
 ```
-User
-  ↓
-AI Agent / LLM
-  ↓
+Agents / Systems
+      ↓
 IntentEnvelope
-  ↓
-SIP Broker
+      ↓
+SIP Control Plane
   ├─ Envelope Validation
   ├─ Capability Negotiation
-  ├─ Policy Evaluation
+  ├─ Policy Evaluation (scopes, trust, risk, delegation)
   └─ ExecutionPlan
-  ↓
-Execution Systems
+      ↓
+Execution Systems (outside SIP)
   REST | gRPC | MCP | A2A | RAG
 ```
 

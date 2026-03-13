@@ -1,13 +1,11 @@
 # SIP Python SDK
 
 The `sip.sdk` module provides a clean, stable public API surface for building
-Python applications that use the Semantic Intent Protocol.
+Python applications that interact with the SIP control plane.
 
 ## What is the SIP Python SDK?
 
-The SIP Python SDK is the official Python library for interacting with the
-Semantic Intent Protocol. It sits on top of the SIP reference implementation
-and provides:
+The SIP Python SDK is the official Python client library for the Semantic Intent Protocol control plane. Use it to construct protocol objects and submit them to a SIP broker, or to interact with broker API and capability discovery endpoints. It sits on top of the SIP reference implementation and provides:
 
 - **Protocol models** — typed Pydantic models for every SIP object
 - **Builders** — convenience constructors for common objects
