@@ -1,0 +1,31 @@
+# CODEOWNERS
+# Maintainer review is required for all critical protocol and governance files.
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for all files not matched by a more specific rule
+* @ansharma0923
+
+# Governance and legal files
+README.md                        @ansharma0923
+LICENSE                          @ansharma0923
+NOTICE                           @ansharma0923
+SECURITY.md                      @ansharma0923
+CONTRIBUTING.md                  @ansharma0923
+CODE_OF_CONDUCT.md               @ansharma0923
+
+# Protocol specification and documentation
+docs/sip-wire-spec-v0.1.md       @ansharma0923
+docs/security-model.md           @ansharma0923
+docs/capability-model.md         @ansharma0923
+docs/governance.md               @ansharma0923
+
+# Protocol vectors (canonical test fixtures)
+protocol-vectors/                @ansharma0923
+
+# Core protocol implementation
+sip/envelope/                    @ansharma0923
+sip/policy/                      @ansharma0923
+sip/federation/                  @ansharma0923
+
+# SDK
+sdk/                             @ansharma0923

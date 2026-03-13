@@ -1,13 +1,14 @@
 # Semantic Intent Protocol (SIP)
 
+<img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="Apache 2.0 License">
+
 **Semantic Intent Protocol (SIP) is a deterministic control plane protocol for AI agents and software systems.**
 
 SIP converts semantic intent into validated, authorized execution plans before actions are executed in external systems. It sits between AI agents or software systems and the execution systems they interact with, providing a structured negotiation, authorization, and planning layer.
 
 SIP complements AI frameworks, APIs, and execution runtimes by providing a security-aware negotiation and planning layer between them.
 
-> **Status**: Private development, v0.1 working draft.
-> Future public open source release planned.
+> **Status**: v0.1 public release. Licensed under Apache License 2.0.
 
 ---
 
@@ -409,11 +410,16 @@ pytest tests/functional/ -v
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+This project is licensed under the [Apache License 2.0](LICENSE).
+See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
 
 ---
 
 ## Contributing
 
-This repository is in private development. Contributions are welcome from
-authorized collaborators. See the docs for architecture and coding conventions.
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md)
+before opening issues or pull requests.
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to contribute, PR process, and protocol change guidance
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community standards
+- [SECURITY.md](SECURITY.md) — how to report security vulnerabilities privately
