@@ -2,7 +2,11 @@
 
 ## What is SIP?
 
-SIP (Semantic Intent Protocol) is an open semantic interoperability protocol for AI agents and software systems. It standardizes how systems express semantic intent, negotiate capabilities, apply trust and policy controls, and translate requests into deterministic execution through existing protocols such as REST, gRPC, MCP, A2A, and retrieval systems.
+**Semantic Intent Protocol (SIP) is a deterministic control plane protocol for AI agents and software systems.**
+
+SIP converts semantic intent into validated, authorized execution plans before actions are executed in external systems. It sits above execution protocols (REST, gRPC, MCP, A2A, RAG) and below AI agent reasoning layers, providing a structured negotiation, authorization, and planning layer between them.
+
+SIP complements AI frameworks, APIs, and execution runtimes by providing a security-aware negotiation and planning layer between them.
 
 ## The Problem SIP Solves
 
@@ -16,14 +20,14 @@ Modern software systems face three compounding integration challenges:
 
 ## SIP's Answer
 
-SIP introduces a structured **intent layer** that sits above existing execution protocols:
+SIP provides a **deterministic control plane** that converts semantic intent into validated, authorized execution plans before anything is executed:
 
 ```
-User or system
-  → AI agent / LLM proposes IntentEnvelope
-  → SIP broker validates and authorizes the request
-  → SIP produces an ExecutionPlan
-  → execution occurs through REST, gRPC, MCP, A2A, or RAG bindings
+AI Agent / Software System
+  → IntentEnvelope
+  → SIP Control Plane (validation, negotiation, authorization, planning)
+  → ExecutionPlan
+  → external execution system (REST, gRPC, MCP, A2A, RAG)
 ```
 
 An intent envelope expresses **what** is desired, not **how** to achieve it. SIP negotiates **which capability** should satisfy the intent, evaluates **policy and trust**, and produces a **deterministic execution plan** that is handed to the appropriate execution protocol adapter.
@@ -32,7 +36,7 @@ Natural language can be included in the envelope as an annotation for auditing a
 
 ## Role of AI Agents and LLMs
 
-AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this happens **outside** the SIP protocol layer. SIP itself does not perform LLM inference. SIP acts as a **deterministic control layer** responsible for validation, capability negotiation, authorization, and execution planning. The separation ensures that non-deterministic AI reasoning is kept outside the security boundary, while SIP enforces deterministic, auditable control over what actually executes.
+AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this happens **outside** the SIP protocol layer. SIP itself does not perform LLM inference. SIP acts as a **deterministic control plane** responsible for validation, capability negotiation, authorization, and execution planning. The separation ensures that non-deterministic AI reasoning is kept outside the security boundary, while SIP enforces deterministic, auditable control over what actually executes.
 
 ## Core Principles
 
@@ -45,16 +49,28 @@ AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this hap
 ## What SIP Is Not
 
 - SIP is **not** a replacement for REST, gRPC, MCP, or any other execution protocol.
-- SIP is **not** an LLM orchestration framework.
+- SIP is **not** an LLM or AI inference engine.
+- SIP is **not** an agent framework.
 - SIP is **not** a workflow engine or task scheduler.
 - SIP is **not** a messaging queue or event bus.
+- SIP is **not** a direct execution engine — it produces plans that external systems carry out.
 - The HTTP API is **one transport surface** for SIP — it is not the protocol definition itself.
 
-SIP is a **semantic negotiation and translation layer** that makes existing systems interoperable through structured intent expression.
+## Where SIP Fits
+
+SIP complements rather than replaces existing categories:
+
+| Category | Relationship to SIP |
+|---|---|
+| AI agent frameworks | May create or propose `IntentEnvelope` objects submitted to SIP |
+| Workflow engines | May receive `ExecutionPlan` results to trigger downstream steps |
+| Tool invocation protocols (MCP, A2A) | Serve as execution bindings that SIP delegates to |
+| REST / gRPC APIs | Execution targets that SIP produces plans for |
+| Retrieval systems (RAG) | Execution binding for knowledge retrieval intents |
 
 ## Current Status
 
-SIP v0.1 is the initial reference release. The Python reference implementation in this repository demonstrates all core protocol capabilities.
+SIP v0.1 is the initial reference release of the deterministic control plane protocol. The Python reference implementation in this repository demonstrates all core protocol capabilities.
 
 ### SIP v0.1 includes:
 

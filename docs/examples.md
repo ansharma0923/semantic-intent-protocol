@@ -161,15 +161,15 @@ make run-examples
 ## Understanding the Output
 
 Each example prints:
-- The intent details
+- The intent details submitted to the SIP control plane
 - The negotiation result (selected capability, binding, rationale)
-- The policy decision (scopes, risk, approval)
-- The execution plan (parameters, steps)
-- The translated payload (ready for the executor)
+- The policy decision from the control plane (scopes, risk, approval)
+- The execution plan (parameters, steps) — ready to hand to an external execution system
+- The translated payload (deterministic specification for the executor)
 - The audit record
 
 None of the examples make real network calls. The execution payloads are
-deterministic specifications ready to hand to actual executors.
+deterministic specifications ready to hand to actual execution systems outside SIP.
 
 
 ## Protocol Vectors

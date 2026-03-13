@@ -1,7 +1,10 @@
 # SIP Examples Walkthrough
 
 This document walks through every runnable example in the `examples/` directory and the end-to-end
-demo in `examples/end_to_end_demo/`.  For each example you will find:
+demo in `examples/end_to_end_demo/`.  Each example demonstrates a developer interacting with the
+SIP control plane — submitting intents, receiving execution plans, and observing policy decisions.
+
+For each example you will find:
 
 - **Purpose** — what the example demonstrates
 - **File** — path to the script

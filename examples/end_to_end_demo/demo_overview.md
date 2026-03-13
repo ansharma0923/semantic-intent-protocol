@@ -12,7 +12,7 @@ User / AI Agent
       ↓
 Python SDK (build_intent_envelope)
       ↓
-Broker A  (BrokerService in-process or HTTP)
+SIP Control Plane — Broker A  (BrokerService in-process or HTTP)
   ├── CapabilityMatcher
   ├── PolicyEngine
   ├── ExecutionPlanner
@@ -20,6 +20,9 @@ Broker A  (BrokerService in-process or HTTP)
                                └── Remote Capabilities
       ↓
 NegotiationResult + ExecutionPlan + AuditRecord
+      ↓
+External Execution Systems (outside SIP)
+  REST | gRPC | MCP | A2A | RAG
 ```
 
 ---

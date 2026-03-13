@@ -6,7 +6,7 @@ This document defines the governance model for the Semantic Intent Protocol (SIP
 
 ## Overview
 
-The Semantic Intent Protocol (SIP) is an open semantic interoperability protocol designed to be stable, deterministic, and implementable across multiple languages and runtimes. Governance ensures that the protocol evolves predictably without breaking existing implementations.
+The Semantic Intent Protocol (SIP) is a deterministic control plane protocol for AI agents and software systems, designed to be stable, deterministic, and implementable across multiple languages and runtimes. Governance ensures that the protocol evolves predictably without breaking existing implementations.
 
 SIP governance is organized around three principles:
 
