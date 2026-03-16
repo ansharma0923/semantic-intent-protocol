@@ -6,7 +6,7 @@
 
 SIP defines a portable intent envelope and deterministic control plane that enables interoperability between AI agents, tools, and execution systems.
 
-> **Status**: v0.1.1 public release. Licensed under Apache License 2.0.
+> **Status**: v0.1.2 public release. Licensed under Apache License 2.0.
 
 ---
 
@@ -420,7 +420,7 @@ pytest tests/functional/ -v
 pytest tests/schema_validation/ -v
 ```
 
-542+ tests, 0 failures in the v0.1.1 reference implementation.
+542+ tests, 0 failures in the v0.1.2 reference implementation.
 
 ---
 
