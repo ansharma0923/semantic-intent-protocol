@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ansharma0923/semantic-intent-protocol/schema/sip-capability-descriptor.schema.json",
+  "title": "SIP CapabilityDescriptor",
+  "description": "Describes a registered capability in the SIP broker registry. Capabilities are the execution targets that the broker matches against incoming IntentEnvelopes.",
+  "type": "object",
+  "required": [
+    "capability_id",
+    "name",
+    "description",
+    "intent_domains",
+    "operation_class",
+    "risk_level",
+    "required_scopes",
+    "minimum_trust_tier",
+    "supported_bindings"
+  ],
+  "properties": {
+    "capability_id": {
+      "type": "string",
+      "description": "Unique capability identifier. Recommended format: 'domain.subdomain.action' (e.g., 'sip.knowledge.retrieve').",
+      "examples": ["sip.knowledge.retrieve", "sip.booking.reserve_table"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable capability name."
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of what this capability does."
+    },
+    "provider": {
+      "$ref": "#/$defs/ProviderMetadata"
+    },
+    "intent_domains": {
+      "type": "array",
+      "description": "Domains or categories this capability serves. Used for capability matching.",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "examples": [["knowledge_management", "research", "information_retrieval"]]
+    },
+    "input_schema": {
+      "$ref": "#/$defs/CapabilitySchema"
+    },
+    "output_schema": {
+      "$ref": "#/$defs/CapabilitySchema"
+    },
+    "operation_class": {
+      "type": "string",
+      "description": "Operation class matched against IntentPayload.operation_class for policy evaluation.",
+      "enum": ["retrieve", "create", "update", "delete", "analyze", "notify", "execute", "query"]
+    },
+    "risk_level": {
+      "type": "string",
+      "description": "Risk classification of this capability. Drives approval requirements.",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "required_scopes": {
+      "type": "array",
+      "description": "Scopes the calling actor must hold to use this capability.",
+      "items": { "type": "string" }
+    },
+    "minimum_trust_tier": {
+      "type": "string",
+      "description": "Minimum actor trust level required to invoke this capability.",
+      "enum": ["public", "internal", "privileged", "admin"]
+    },
+    "supported_bindings": {
+      "type": "array",
+      "description": "Execution protocol bindings this capability supports.",
+      "items": {
+        "type": "string",
+        "enum": ["rest", "grpc", "mcp", "a2a", "rag"]
+      },
+      "minItems": 1
+    },
+    "execution": {
+      "$ref": "#/$defs/ExecutionMetadata"
+    },
+    "constraints": {
+      "$ref": "#/$defs/CapabilityConstraints"
+    },
+    "examples": {
+      "type": "array",
+      "description": "Example invocations for documentation and SDK tooling.",
+      "items": {
+        "$ref": "#/$defs/CapabilityExample"
+      },
+      "default": []
+    },
+    "tags": {
+      "type": "array",
+      "description": "Free-form tags for search and discoverability.",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Vendor or application extension metadata. Keys should be namespaced.",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ProviderMetadata": {
+      "type": "object",
+      "description": "Identifies the service or system that implements this capability.",
+      "required": ["provider_id", "provider_name"],
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "description": "Unique provider identifier."
+        },
+        "provider_name": {
+          "type": "string",
+          "description": "Human-readable provider name."
+        },
+        "contact": {
+          "type": ["string", "null"],
+          "description": "Contact email or URI for the provider.",
+          "default": null
+        },
+        "version": {
+          "type": ["string", "null"],
+          "description": "Provider implementation version.",
+          "default": null
+        },
+        "documentation_url": {
+          "type": ["string", "null"],
+          "description": "URL to provider documentation.",
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "CapabilitySchema": {
+      "type": "object",
+      "description": "Lightweight schema descriptor for capability input or output.",
+      "properties": {
+        "schema_id": {
+          "type": ["string", "null"],
+          "description": "Unique schema identifier.",
+          "default": null
+        },
+        "description": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "properties": {
+          "type": "object",
+          "description": "Property name to type mapping.",
+          "additionalProperties": { "type": "string" },
+          "default": {}
+        },
+        "required_fields": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExecutionMetadata": {
+      "type": "object",
+      "description": "Execution characteristics of this capability.",
+      "properties": {
+        "average_latency_ms": {
+          "type": ["integer", "null"],
+          "description": "Typical execution latency in milliseconds.",
+          "default": null
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Whether repeated invocations with the same parameters produce the same result.",
+          "default": true
+        },
+        "supports_dry_run": {
+          "type": "boolean",
+          "description": "Whether this capability supports a dry-run mode.",
+          "default": false
+        },
+        "max_retries": {
+          "type": "integer",
+          "description": "Maximum number of retries recommended.",
+          "default": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "CapabilityConstraints": {
+      "type": "object",
+      "description": "Operational constraints on this capability.",
+      "properties": {
+        "rate_limit_per_minute": {
+          "type": ["integer", "null"],
+          "default": null
+        },
+        "requires_human_approval": {
+          "type": "boolean",
+          "default": false
+        },
+        "allowed_environments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["production", "staging", "development", "test"]
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "CapabilityExample": {
+      "type": "object",
+      "description": "A documented example invocation.",
+      "required": ["name", "parameters"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "expected_output_summary": {
+          "type": ["string", "null"],
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

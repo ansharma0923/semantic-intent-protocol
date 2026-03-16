@@ -2,19 +2,31 @@
 
 <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="Apache 2.0 License">
 
-**Semantic Intent Protocol (SIP) is a deterministic control plane protocol for AI agents and software systems.**
+**Semantic Intent Protocol (SIP) is an open, deterministic control-plane protocol for AI agents, services, and infrastructure systems.**
 
-SIP converts semantic intent into validated, authorized execution plans before actions are executed in external systems. It sits between AI agents or software systems and the execution systems they interact with, providing a structured negotiation, authorization, and planning layer.
+SIP defines a portable intent envelope and deterministic control plane that enables interoperability between AI agents, tools, and execution systems.
 
-SIP complements AI frameworks, APIs, and execution runtimes by providing a security-aware negotiation and planning layer between them.
+> **Status**: v0.1.1 public release. Licensed under Apache License 2.0.
 
-> **Status**: v0.1 public release. Licensed under Apache License 2.0.
+---
+
+## Problem
+
+**AI systems today lack a standardized, machine-interpretable way to express intent across agents, tools, services, and execution environments.**
+
+Every team building AI-driven automation faces the same three problems:
+
+1. **API explosion** — Every system has its own API, schema, and auth model. N systems = N custom integrations.
+2. **Schema coupling** — Systems are tightly coupled to the schemas of downstream APIs. Schema changes silently break consumers.
+3. **LLM ambiguity** — Natural language is expressive but too ambiguous and unpredictable for safe direct execution.
+
+The result is fragmented integrations, inconsistent authorization, no standard audit trail, and brittle agent-to-system wiring that breaks under change.
 
 ---
 
 ## What SIP Is
 
-SIP is a **deterministic control plane protocol** that:
+SIP is a **deterministic control-plane protocol** that:
 
 - Sits between AI agents / software systems and execution systems
 - Validates and type-checks semantic intent before any action occurs
@@ -23,18 +35,18 @@ SIP is a **deterministic control plane protocol** that:
 - Produces a fully specified `ExecutionPlan` — external systems carry out the plan
 
 ```
-Agents / Systems
-      ↓
-IntentEnvelope
-      ↓
-SIP Control Plane
+AI Agent / Application
+        ↓
+   IntentEnvelope (SIP)
+        ↓
+     SIP Broker
   - validation
-  - negotiation
-  - authorization
-  - planning
-      ↓
+  - capability negotiation
+  - policy / authorization
+  - execution planning
+        ↓
 Execution Systems
-  REST | gRPC | MCP | A2A | RAG
+REST | gRPC | MCP | A2A | RAG
 ```
 
 **Natural language is never executed directly.** It may appear as an audit annotation, but it has no operational effect.
@@ -55,6 +67,14 @@ Execution Systems
 
 SIP complements rather than replaces existing categories:
 
+```
+LLM / Agent Framework
+        ↓
+   SIP Intent Layer
+        ↓
+ Execution Systems / Infrastructure
+```
+
 | Category | Relationship to SIP |
 |---|---|
 | AI agent frameworks | May create or propose `IntentEnvelope` objects submitted to SIP |
@@ -63,7 +83,7 @@ SIP complements rather than replaces existing categories:
 | REST / gRPC APIs | Execution targets that SIP produces plans for |
 | Retrieval systems (RAG) | Execution binding for knowledge retrieval intents |
 
-SIP does not compete with these systems — it provides the deterministic control plane layer that sits between intent-producing systems and execution systems.
+SIP does not compete with these systems — it provides the deterministic control-plane layer that sits between intent-producing systems and execution systems.
 
 ---
 
@@ -76,6 +96,55 @@ Modern software systems face three compounding integration problems:
 3. **LLM ambiguity** — Natural language is expressive but too ambiguous and unpredictable for safe direct execution.
 
 SIP's answer is a **deterministic control plane** that sits above existing execution protocols, converting semantic intent into validated, authorized execution plans before any external system is touched.
+
+---
+
+## Example SIP Message Structure
+
+A minimal `IntentEnvelope` for a knowledge retrieval request:
+
+```json
+{
+  "sip_version": "0.1",
+  "message_type": "intent_request",
+  "intent_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "actor": {
+    "actor_id": "research-agent-01",
+    "actor_type": "ai_agent",
+    "name": "Research Assistant",
+    "trust_level": "internal",
+    "scopes": ["sip.knowledge.read"]
+  },
+  "target": {
+    "target_type": "capability",
+    "namespace": "knowledge_management"
+  },
+  "intent": {
+    "intent_name": "retrieve_document",
+    "intent_domain": "knowledge_management",
+    "operation_class": "retrieve",
+    "parameters": {
+      "query": "Q4 2023 financial results",
+      "top_k": 5
+    }
+  },
+  "desired_outcome": {
+    "summary": "Return the top-5 most relevant documents",
+    "output_format": "json"
+  },
+  "constraints": {
+    "time_budget_ms": 3000,
+    "determinism_required": "strict"
+  },
+  "protocol_bindings": [
+    { "binding_type": "rag" }
+  ]
+}
+```
+
+The broker validates this envelope, matches it to the `sip.knowledge.retrieve` capability, checks scopes and trust, and produces an `ExecutionPlan` ready for the RAG adapter. The agent never directly invokes the retrieval system.
+
+See [`protocol-vectors/intent-envelope-basic.json`](protocol-vectors/intent-envelope-basic.json) for a full canonical example with all fields.
 
 ---
 
@@ -94,7 +163,7 @@ SIP's answer is a **deterministic control plane** that sits above existing execu
 
 ```
 semantic-intent-protocol/
-├── sip/                        # Python package
+├── sip/                        # Python reference implementation
 │   ├── envelope/               # IntentEnvelope models and validation
 │   ├── registry/               # CapabilityDescriptor, service, storage, bootstrap
 │   ├── negotiation/            # Matcher, planner, result models
@@ -102,9 +171,15 @@ semantic-intent-protocol/
 │   ├── policy/                 # Policy engine, scopes, approvals, risk
 │   ├── observability/          # Tracing, audit, logging
 │   └── broker/                 # BrokerService, pipeline handlers, FastAPI API
+├── schema/                     # Formal JSON Schemas for all protocol objects
+├── protocol-vectors/           # Canonical JSON fixtures (normative wire format)
+├── sdk/go/                     # Go SDK
 ├── tests/
 │   ├── unit/                   # Unit tests for each module
-│   └── functional/             # End-to-end flow tests
+│   ├── functional/             # End-to-end flow tests
+│   ├── protocol_vectors/       # Protocol vector validation tests
+│   ├── interoperability/       # Multi-broker federation tests
+│   └── schema_validation/      # JSON Schema validation tests
 ├── examples/                   # Runnable example scripts
 ├── docs/                       # Protocol documentation
 ├── pyproject.toml
@@ -317,13 +392,15 @@ print(translation.payload["retrieval_query"])
 
 ## Core Protocol Objects
 
-| Object | Description |
-|---|---|
-| `IntentEnvelope` | Root protocol object — carries a semantic intent from actor to target |
-| `CapabilityDescriptor` | Describes a registered capability with schema, trust, and binding info |
-| `NegotiationResult` | Ranked candidates, selected capability, policy decision |
-| `ExecutionPlan` | Deterministic plan ready for adapter translation |
-| `AuditRecord` | Immutable audit log entry for every processed intent |
+| Object | Schema | Description |
+|---|---|---|
+| `IntentEnvelope` | [`schema/sip-intent-envelope.schema.json`](schema/sip-intent-envelope.schema.json) | Root protocol object — carries a semantic intent from actor to target |
+| `CapabilityDescriptor` | [`schema/sip-capability-descriptor.schema.json`](schema/sip-capability-descriptor.schema.json) | Describes a registered capability with schema, trust, and binding info |
+| `NegotiationResult` | [`schema/sip-negotiation-result.schema.json`](schema/sip-negotiation-result.schema.json) | Ranked candidates, selected capability, policy decision |
+| `ExecutionPlan` | [`schema/sip-execution-plan.schema.json`](schema/sip-execution-plan.schema.json) | Deterministic plan ready for adapter translation |
+| `AuditRecord` | [`schema/sip-audit-record.schema.json`](schema/sip-audit-record.schema.json) | Immutable audit log entry for every processed intent |
+
+See [`schema/README.md`](schema/README.md) for how to use these schemas in your own implementation.
 
 ---
 
@@ -338,9 +415,12 @@ pytest tests/unit/ -v
 
 # Functional tests only
 pytest tests/functional/ -v
+
+# Schema validation tests
+pytest tests/schema_validation/ -v
 ```
 
-151 tests, 0 failures in the v0.1 reference implementation.
+542+ tests, 0 failures in the v0.1.1 reference implementation.
 
 ---
 
@@ -349,13 +429,14 @@ pytest tests/functional/ -v
 | Document | Description |
 |---|---|
 | [docs/quickstart.md](docs/quickstart.md) | **Getting started guide** — start here |
+| [docs/protocol-overview.md](docs/protocol-overview.md) | Conceptual overview for new readers — what SIP solves and how |
 | [docs/overview.md](docs/overview.md) | What SIP is and why it exists |
 | [docs/architecture.md](docs/architecture.md) | Components, data flow, package structure |
-| [docs/sip-wire-spec-v0.1.md](docs/sip-wire-spec-v0.1.md) | Full protocol specification |
+| [docs/sip-wire-spec-v0.1.md](docs/sip-wire-spec-v0.1.md) | Normative protocol specification |
 | [docs/capability-model.md](docs/capability-model.md) | Capability descriptors and registry |
 | [docs/security-model.md](docs/security-model.md) | Trust, scopes, risk, policy, audit |
+| [docs/examples.md](docs/examples.md) | Use cases and example scenarios |
 | [docs/examples-walkthrough.md](docs/examples-walkthrough.md) | Guided walkthrough of all examples |
-| [docs/examples.md](docs/examples.md) | Example scenario index |
 | [docs/python-sdk.md](docs/python-sdk.md) | Python SDK reference guide |
 | [docs/governance.md](docs/governance.md) | Protocol governance, versioning, and compatibility |
 | [docs/releases/v0.1.1.md](docs/releases/v0.1.1.md) | v0.1.1 release notes |
@@ -364,7 +445,9 @@ pytest tests/functional/ -v
 
 | Resource | Description |
 |---|---|
+| [schema/](schema/) | Formal JSON Schemas for all SIP v0.1 protocol objects |
 | [protocol-vectors/](protocol-vectors/) | Canonical JSON fixtures for SIP v0.1 protocol objects |
+| [tests/schema_validation/](tests/schema_validation/) | JSON Schema validation tests |
 | [tests/protocol_vectors/](tests/protocol_vectors/) | Python tests validating all protocol vectors |
 | [tests/interoperability/](tests/interoperability/) | Multi-broker interoperability tests |
 | [sdk/go/](sdk/go/) | Go SDK — types, constructors, and HTTP client |
@@ -373,38 +456,57 @@ pytest tests/functional/ -v
 
 ---
 
+## SDKs
+
+| SDK | Language | Status |
+|---|---|---|
+| [`sip.sdk`](docs/python-sdk.md) | Python | Stable (v0.1.1) |
+| [`sdk/go/`](sdk/go/) | Go | Stable (v0.1.1) |
+
+---
+
+## Examples
+
+| Example | Description |
+|---|---|
+| [`examples/public_intro_demo.py`](examples/public_intro_demo.py) | **Start here** — short intro showing SIP end-to-end |
+| [`examples/knowledge_retrieval.py`](examples/knowledge_retrieval.py) | Enterprise knowledge retrieval via RAG |
+| [`examples/restaurant_booking.py`](examples/restaurant_booking.py) | Write intent via REST binding |
+| [`examples/network_troubleshooting.py`](examples/network_troubleshooting.py) | Analyze intent via gRPC binding |
+| [`examples/multi_agent_collaboration.py`](examples/multi_agent_collaboration.py) | Two-step A2A orchestration |
+| [`examples/end_to_end_demo/`](examples/end_to_end_demo/) | Full multi-SDK + federation demo |
+
+Run all examples:
+
+```bash
+make run-examples
+```
+
+---
+
 ## Roadmap
 
-### v0.1 (current)
-- IntentEnvelope with full nested model
-- CapabilityDescriptor with rich metadata
-- In-memory capability registry
-- Deterministic capability matching and ranking
-- Policy engine (scopes, risk, delegation, sensitivity)
-- Execution planner
-- REST, gRPC, MCP, A2A, RAG adapters
-- BrokerService with full pipeline
-- Audit records and structured logging
-- 151+ unit and functional tests
-- Protocol vectors for cross-SDK compatibility testing
-- Broker interoperability tests
+### Stable in v0.1.1
+- Protocol specification (SIP v0.1 wire format)
+- Python reference implementation
+- Python SDK (`sip.sdk`) with full public API
 - Go SDK with JSON serialization and HTTP client
-- 4 runnable example workflows
-- Optional FastAPI broker API
+- Broker HTTP API (FastAPI)
+- Capability discovery API with semantic matching
+- Federation model (distributed broker discovery)
+- Protocol vectors (normative canonical JSON fixtures)
+- Formal JSON Schemas for all protocol objects
+- 542+ unit, functional, and schema validation tests
 - Protocol governance documentation
 
-### v0.2 (planned)
-- Envelope signing and verification (integrity block)
-- Persistent registry backends (SQLite, Redis)
-- Multi-step execution plans (A2A chaining)
+### Future directions
+- Additional language SDKs
+- Broader ecosystem integrations (more agent frameworks, tool protocols)
+- Interoperability expansion (additional execution bindings)
+- Protocol standardization work (public specification process)
+- Envelope signing and verification
+- Persistent registry backends
 - Streaming execution results
-- Enhanced scope taxonomy
-
-### v0.3 (planned)
-- Public protocol specification release
-- Cross-language SDK scaffolding
-- Registry federation
-- Token validation middleware
 
 ---
 

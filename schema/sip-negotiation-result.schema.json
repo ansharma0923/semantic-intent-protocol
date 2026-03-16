@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ansharma0923/semantic-intent-protocol/schema/sip-negotiation-result.schema.json",
+  "title": "SIP NegotiationResult",
+  "description": "The result of the SIP broker's capability negotiation phase. Contains ranked candidates, the selected capability and binding, and the policy decision.",
+  "type": "object",
+  "required": [
+    "intent_id",
+    "ranked_candidates",
+    "requires_clarification"
+  ],
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "description": "ID of the IntentEnvelope that this negotiation result corresponds to."
+    },
+    "ranked_candidates": {
+      "type": "array",
+      "description": "Capabilities considered, ranked by match score (descending).",
+      "items": {
+        "$ref": "#/$defs/RankedCandidate"
+      }
+    },
+    "selected_capability": {
+      "description": "The capability chosen by the broker. Null if no suitable capability was found.",
+      "oneOf": [
+        { "$ref": "#/$defs/CapabilityDescriptorRef" },
+        { "type": "null" }
+      ],
+      "default": null
+    },
+    "selection_rationale": {
+      "type": ["string", "null"],
+      "description": "Human-readable explanation of why this capability was selected.",
+      "default": null
+    },
+    "requires_clarification": {
+      "type": "boolean",
+      "description": "True if the broker cannot resolve the intent without additional input from the actor."
+    },
+    "clarification_questions": {
+      "type": "array",
+      "description": "Questions the broker needs answered before it can proceed.",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "allowed_bindings": {
+      "type": "array",
+      "description": "Bindings allowed by the selected capability and policy.",
+      "items": {
+        "type": "string",
+        "enum": ["rest", "grpc", "mcp", "a2a", "rag"]
+      },
+      "default": []
+    },
+    "selected_binding": {
+      "type": ["string", "null"],
+      "description": "The execution protocol binding chosen for this intent.",
+      "enum": ["rest", "grpc", "mcp", "a2a", "rag", null],
+      "default": null
+    },
+    "policy_decision": {
+      "$ref": "#/$defs/PolicyDecision"
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "RankedCandidate": {
+      "type": "object",
+      "description": "A capability candidate with its match score and rationale.",
+      "required": ["capability", "score"],
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "score": {
+          "type": "number",
+          "description": "Match score between 0.0 and 1.0 (higher is better).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "rationale": {
+          "type": ["string", "null"],
+          "description": "Human-readable explanation of the score.",
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "PolicyDecision": {
+      "type": "object",
+      "description": "The policy engine's decision for this intent.",
+      "required": ["allowed"],
+      "properties": {
+        "allowed": {
+          "type": "boolean",
+          "description": "Whether the intent is permitted to proceed."
+        },
+        "requires_approval": {
+          "type": "boolean",
+          "description": "Whether human approval is required before execution.",
+          "default": false
+        },
+        "denied_scopes": {
+          "type": "array",
+          "description": "Scopes that were required but not held by the actor.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "policy_notes": {
+          "type": "array",
+          "description": "Human-readable policy evaluation notes.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "CapabilityDescriptorRef": {
+      "type": "object",
+      "description": "Inline or referenced capability descriptor (abbreviated for negotiation results).",
+      "required": ["capability_id", "name"],
+      "properties": {
+        "capability_id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": ["string", "null"], "default": null },
+        "provider": {
+          "type": ["object", "null"],
+          "default": null
+        },
+        "intent_domains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "input_schema": { "type": ["object", "null"], "default": null },
+        "output_schema": { "type": ["object", "null"], "default": null },
+        "operation_class": { "type": ["string", "null"], "default": null },
+        "risk_level": { "type": ["string", "null"], "default": null },
+        "required_scopes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "minimum_trust_tier": { "type": ["string", "null"], "default": null },
+        "supported_bindings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "execution": { "type": ["object", "null"], "default": null },
+        "constraints": { "type": ["object", "null"], "default": null },
+        "examples": { "type": "array", "default": [] },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "extensions": { "type": "object", "default": {} }
+      }
+    }
+  }
+}

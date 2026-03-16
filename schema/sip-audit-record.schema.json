@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ansharma0923/semantic-intent-protocol/schema/sip-audit-record.schema.json",
+  "title": "SIP AuditRecord",
+  "description": "An immutable audit log entry produced for every IntentEnvelope processed by the SIP broker. Audit records are write-once and capture the full context of the broker's decision.",
+  "type": "object",
+  "required": [
+    "audit_id",
+    "timestamp",
+    "trace_id",
+    "intent_id",
+    "actor_id",
+    "actor_type",
+    "intent_name",
+    "intent_domain",
+    "operation_class",
+    "action_taken",
+    "policy_allowed",
+    "outcome_summary"
+  ],
+  "properties": {
+    "audit_id": {
+      "type": "string",
+      "description": "Unique identifier for this audit record."
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp when the audit record was created."
+    },
+    "trace_id": {
+      "type": ["string", "null"],
+      "description": "Distributed tracing trace ID, inherited from the IntentEnvelope.",
+      "default": null
+    },
+    "intent_id": {
+      "type": "string",
+      "description": "ID of the IntentEnvelope that triggered this audit record."
+    },
+    "actor_id": {
+      "type": "string",
+      "description": "ID of the actor that submitted the intent."
+    },
+    "actor_type": {
+      "type": "string",
+      "description": "Type of the actor.",
+      "enum": ["ai_agent", "service", "human", "system"]
+    },
+    "intent_name": {
+      "type": "string",
+      "description": "Name of the intent that was processed."
+    },
+    "intent_domain": {
+      "type": "string",
+      "description": "Domain of the processed intent."
+    },
+    "operation_class": {
+      "type": "string",
+      "description": "Operation class of the processed intent.",
+      "enum": ["retrieve", "create", "update", "delete", "analyze", "notify", "execute", "query"]
+    },
+    "selected_capability_id": {
+      "type": ["string", "null"],
+      "description": "ID of the capability selected by the broker. Null if no capability was matched.",
+      "default": null
+    },
+    "selected_binding": {
+      "type": ["string", "null"],
+      "description": "Execution binding selected. Null if no plan was created.",
+      "enum": ["rest", "grpc", "mcp", "a2a", "rag", null],
+      "default": null
+    },
+    "action_taken": {
+      "type": "string",
+      "description": "The action taken by the broker.",
+      "enum": ["plan_created", "denied", "clarification_required", "error", "pending_approval"]
+    },
+    "policy_allowed": {
+      "type": "boolean",
+      "description": "Whether the policy engine permitted this intent."
+    },
+    "approval_state": {
+      "type": ["string", "null"],
+      "description": "Approval state for high-risk operations.",
+      "enum": ["not_required", "pending", "approved", "rejected", null],
+      "default": null
+    },
+    "outcome_summary": {
+      "type": "string",
+      "description": "Outcome summary for this audit entry.",
+      "enum": ["success", "denied", "error", "pending"]
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Additional human-readable notes about this audit entry.",
+      "default": null
+    },
+    "originator": {
+      "type": ["string", "null"],
+      "description": "Originator actor ID, if provenance was attached to the intent.",
+      "default": null
+    },
+    "submitting_actor": {
+      "type": ["string", "null"],
+      "description": "Submitting actor ID, if different from the originator (delegation).",
+      "default": null
+    },
+    "delegation_chain": {
+      "type": "array",
+      "description": "Delegation chain from the intent's provenance block.",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Vendor or application extension metadata.",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "additionalProperties": false
+}

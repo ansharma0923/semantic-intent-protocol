@@ -2,25 +2,39 @@
 
 ## 1. Overview
 
-The Semantic Intent Protocol (SIP) is a **deterministic control plane protocol** for AI agents and software systems. Rather than coupling actors directly to specific APIs or transport protocols, SIP provides a structured control plane that sits above execution systems and below AI agent reasoning layers.
+**Semantic Intent Protocol (SIP) is an open, deterministic control-plane protocol for AI agents, services, and infrastructure systems.**
+
+Rather than coupling actors directly to specific APIs or transport protocols, SIP provides a structured control plane that sits above execution systems and below AI agent reasoning layers.
 
 Actors express *what* they want to achieve through an `IntentEnvelope`. The SIP control plane is responsible for discovering the right capability, evaluating policy, and producing a deterministic execution plan. Actual execution is delegated to an external system via a binding adapter — execution systems remain outside the SIP control plane.
 
 AI agents or LLMs may generate or propose `IntentEnvelope` objects, but this happens **outside** the SIP protocol layer. SIP itself does not perform LLM inference. SIP acts as the **deterministic control plane** — the security boundary between AI-generated intent and execution systems — responsible for validation, capability negotiation, authorization, and execution planning.
 
+### Control-Plane Flow
+
 ```
-Agents / Systems
-      ↓
-IntentEnvelope
-      ↓
-SIP Control Plane
-  ├─ Envelope Validation
-  ├─ Capability Negotiation
-  ├─ Policy Evaluation (scopes, trust, risk, delegation)
-  └─ ExecutionPlan
-      ↓
-Execution Systems (outside SIP)
-  REST | gRPC | MCP | A2A | RAG
+AI Agent / Application
+        ↓
+   IntentEnvelope (SIP)
+        ↓
+     SIP Broker
+  - validation
+  - capability negotiation
+  - policy / authorization
+  - execution planning
+        ↓
+Execution Systems
+REST | gRPC | MCP | A2A | RAG
+```
+
+### Ecosystem Positioning
+
+```
+LLM / Agent Framework
+        ↓
+   SIP Intent Layer
+        ↓
+ Execution Systems / Infrastructure
 ```
 
 This document describes the conceptual architecture of SIP — the design goals,
