@@ -1,5 +1,164 @@
 # SIP Examples
 
+## Representative Use Cases
+
+This section describes how SIP applies to concrete, real-world scenarios.
+Each use case shows the intent, what SIP does, and the resulting execution flow.
+
+---
+
+### Use Case 1: Enterprise Knowledge Retrieval
+
+**Intent:** Retrieve documents about "Q4 2023 financial results" from the enterprise knowledge base.
+
+**What SIP does:**
+- Validates the actor holds `sip.knowledge.read` scope
+- Matches `retrieve_document` intent to the `sip.knowledge.retrieve` capability
+- Confirms trust level (`internal`) meets the capability minimum
+- Produces an `ExecutionPlan` with grounded parameters for the RAG adapter
+
+**Execution flow:**
+
+```
+Research Agent
+   │  IntentEnvelope(intent_name="retrieve_document",
+   │                  parameters={"query": "Q4 2023 financial results", "top_k": 5})
+   ▼
+SIP Broker → NegotiationResult(selected: sip.knowledge.retrieve, binding: rag)
+           → ExecutionPlan(grounded_params={"query": "Q4 2023 financial results", "top_k": 5})
+   ▼
+RAG Adapter (external) → runs the retrieval query
+```
+
+See [`examples/knowledge_retrieval.py`](../examples/knowledge_retrieval.py).
+
+---
+
+### Use Case 2: Meeting / Table Booking
+
+**Intent:** Reserve a restaurant table for 4 people at 7pm.
+
+**What SIP does:**
+- Validates the actor holds `sip.booking.write` scope
+- Matches `reserve_table` intent to the booking capability
+- Evaluates risk level (`medium`) — no human approval required for this actor
+- Produces an `ExecutionPlan` with a REST POST specification
+
+**Execution flow:**
+
+```
+User-facing Agent
+   │  IntentEnvelope(intent_name="reserve_table",
+   │                  operation_class=create,
+   │                  parameters={"party_size": 4, "time": "19:00"})
+   ▼
+SIP Broker → NegotiationResult(selected: sip.booking.reserve, binding: rest)
+           → ExecutionPlan(method=POST, path=/reservations, body={...})
+   ▼
+REST Adapter (external) → calls the booking API
+```
+
+See [`examples/restaurant_booking.py`](../examples/restaurant_booking.py).
+
+---
+
+### Use Case 3: Multi-Agent Coordination
+
+**Intent:** Collect telemetry from an infrastructure system, then produce a customer-facing summary.
+
+**What SIP does:**
+- Processes two intents sharing the same `trace_id`
+- Step 1: Routes `collect_telemetry` to the monitoring capability via gRPC
+- Step 2: Routes `summarize_for_customer` to the reporting capability via A2A
+- Each step produces a separate `ExecutionPlan` and `AuditRecord`
+
+**Execution flow:**
+
+```
+Orchestrator Agent
+   │  Intent 1: collect_telemetry (trace_id=abc123)
+   ▼
+SIP Broker → ExecutionPlan(binding: grpc) → gRPC monitoring service
+   │
+   │  Intent 2: summarize_for_customer (trace_id=abc123)
+   ▼
+SIP Broker → ExecutionPlan(binding: a2a) → Customer-facing summary agent
+```
+
+See [`examples/multi_agent_collaboration.py`](../examples/multi_agent_collaboration.py).
+
+---
+
+### Use Case 4: Infrastructure / Operations
+
+**Intent:** Diagnose a reported network connectivity issue.
+
+**What SIP does:**
+- Validates `sip.network.read` scope
+- Matches `diagnose_network_issue` to the network diagnostics capability
+- Enforces `internal` trust minimum (network ops require internal+ trust)
+- Produces a gRPC-ready `ExecutionPlan`
+
+**Execution flow:**
+
+```
+Ops Agent / Monitoring System
+   │  IntentEnvelope(intent_name="diagnose_network_issue",
+   │                  operation_class=analyze,
+   │                  parameters={"target_host": "db-server-01"})
+   ▼
+SIP Broker → NegotiationResult(selected: sip.network.diagnose, binding: grpc)
+           → ExecutionPlan(service="diagnostics.NetworkService",
+                           method="DiagnoseHost",
+                           params={"target_host": "db-server-01"})
+   ▼
+gRPC Adapter (external) → calls the diagnostics service
+```
+
+See [`examples/network_troubleshooting.py`](../examples/network_troubleshooting.py).
+
+---
+
+### Use Case 5: Capability Discovery Across Federated Brokers
+
+**Intent:** Discover all capabilities that handle `knowledge_management` intents across a distributed deployment.
+
+**What SIP does:**
+- Runs a semantic discovery query on the local broker
+- Fans out the query to configured peer brokers via federation
+- Aggregates and deduplicates candidates from all sources
+- Returns a ranked list of capabilities with provenance (which broker hosts each)
+
+**Execution flow:**
+
+```
+Client or Agent
+   │  DiscoveryQuery(intent_domain="knowledge_management", operation_class=retrieve)
+   ▼
+Local SIP Broker → queries local registry
+                → queries peer broker A (ROUTING trust)
+                → queries peer broker B (ROUTING trust)
+   ▼
+Aggregated CapabilityList (ranked, with source broker noted)
+```
+
+See [`examples/distributed_brokers_demo.py`](../examples/distributed_brokers_demo.py).
+
+---
+
+## Introduction Demo
+
+New to SIP? The shortest path to understanding:
+
+```bash
+python examples/public_intro_demo.py
+```
+
+This runs the complete SIP flow end-to-end in ~20 lines of code.
+See [`examples/public_intro_demo.py`](../examples/public_intro_demo.py).
+
+---
+
 ## Quick Start
 
 ```python

@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ansharma0923/semantic-intent-protocol/schema/sip-execution-plan.schema.json",
+  "title": "SIP ExecutionPlan",
+  "description": "A fully specified, deterministic execution plan produced by the SIP broker. External execution systems carry out the plan. The broker does not execute it.",
+  "type": "object",
+  "required": [
+    "plan_id",
+    "intent_id",
+    "selected_capability",
+    "selected_binding",
+    "deterministic_target",
+    "grounded_parameters",
+    "execution_steps",
+    "approval_required"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "description": "Unique identifier for this execution plan (UUID v4 recommended)."
+    },
+    "intent_id": {
+      "type": "string",
+      "description": "ID of the IntentEnvelope this plan was generated from."
+    },
+    "selected_capability": {
+      "type": "object",
+      "description": "The capability descriptor for the selected execution target.",
+      "required": ["capability_id", "name"],
+      "properties": {
+        "capability_id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "selected_binding": {
+      "type": "string",
+      "description": "The execution protocol binding to use.",
+      "enum": ["rest", "grpc", "mcp", "a2a", "rag"]
+    },
+    "deterministic_target": {
+      "type": "object",
+      "description": "Fully resolved execution target including binding and capability ID.",
+      "required": ["binding", "capability_id"],
+      "properties": {
+        "binding": {
+          "type": "string",
+          "enum": ["rest", "grpc", "mcp", "a2a", "rag"]
+        },
+        "capability_id": { "type": "string" },
+        "endpoint": {
+          "type": ["string", "null"],
+          "description": "Resolved endpoint URI, if applicable.",
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "grounded_parameters": {
+      "type": "object",
+      "description": "Validated and resolved parameters ready to pass to the execution system.",
+      "additionalProperties": true
+    },
+    "execution_steps": {
+      "type": "array",
+      "description": "Ordered list of execution steps. Most plans have a single step.",
+      "items": {
+        "$ref": "#/$defs/ExecutionStep"
+      },
+      "minItems": 1
+    },
+    "policy_checks_passed": {
+      "type": "array",
+      "description": "Policy checks that were evaluated and passed.",
+      "items": {
+        "$ref": "#/$defs/PolicyCheck"
+      },
+      "default": []
+    },
+    "approval_required": {
+      "type": "boolean",
+      "description": "Whether human approval is required before the plan can be executed."
+    },
+    "trace": {
+      "$ref": "#/$defs/TraceContext"
+    },
+    "provenance_summary": {
+      "type": ["string", "null"],
+      "description": "Summary of provenance information for this plan, if applicable.",
+      "default": null
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ExecutionStep": {
+      "type": "object",
+      "description": "A single atomic step in the execution plan.",
+      "required": ["step_index", "step_name", "capability_id", "binding", "parameters"],
+      "properties": {
+        "step_index": {
+          "type": "integer",
+          "description": "Zero-based index of this step.",
+          "minimum": 0
+        },
+        "step_name": {
+          "type": "string",
+          "description": "Machine-readable step name."
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Human-readable description of this step.",
+          "default": null
+        },
+        "capability_id": {
+          "type": "string",
+          "description": "Capability to invoke for this step."
+        },
+        "binding": {
+          "type": "string",
+          "description": "Execution protocol for this step.",
+          "enum": ["rest", "grpc", "mcp", "a2a", "rag"]
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Parameters to pass to the capability for this step.",
+          "additionalProperties": true
+        },
+        "depends_on": {
+          "type": "array",
+          "description": "Indices of steps this step depends on.",
+          "items": { "type": "integer" },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "PolicyCheck": {
+      "type": "object",
+      "description": "Record of a policy check that was evaluated.",
+      "required": ["check_name", "result"],
+      "properties": {
+        "check_name": {
+          "type": "string",
+          "description": "Name of the policy check (e.g., 'trust_level', 'scope_check')."
+        },
+        "result": {
+          "type": "string",
+          "description": "Outcome of the policy check.",
+          "enum": ["passed", "failed", "skipped", "warning"]
+        },
+        "notes": {
+          "type": ["string", "null"],
+          "description": "Human-readable explanation of the check result.",
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "TraceContext": {
+      "type": "object",
+      "description": "Distributed tracing context for this plan.",
+      "properties": {
+        "trace_id": { "type": ["string", "null"], "default": null },
+        "span_id": { "type": ["string", "null"], "default": null },
+        "parent_span_id": { "type": ["string", "null"], "default": null },
+        "intent_id": { "type": ["string", "null"], "default": null }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ansharma0923/semantic-intent-protocol/schema/sip-intent-envelope.schema.json",
+  "title": "SIP IntentEnvelope",
+  "description": "Root protocol object for the Semantic Intent Protocol (SIP) v0.1. Carries a semantic intent from an actor to a target, along with trust, provenance, constraints, and binding preferences.",
+  "type": "object",
+  "required": [
+    "sip_version",
+    "message_type",
+    "intent_id",
+    "actor",
+    "target",
+    "intent",
+    "desired_outcome"
+  ],
+  "properties": {
+    "sip_version": {
+      "type": "string",
+      "description": "SIP protocol version. Must be '0.1' for v0.1 implementations.",
+      "enum": ["0.1"]
+    },
+    "message_type": {
+      "type": "string",
+      "description": "Message type discriminator.",
+      "enum": ["intent_request", "intent_response", "intent_error", "intent_cancel"]
+    },
+    "intent_id": {
+      "type": "string",
+      "description": "Unique identifier for this intent envelope (UUID v4 recommended).",
+      "examples": ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+    },
+    "trace_id": {
+      "type": ["string", "null"],
+      "description": "Distributed tracing trace ID. Shared across all intents in a logical operation.",
+      "default": null
+    },
+    "span_id": {
+      "type": ["string", "null"],
+      "description": "Distributed tracing span ID. Unique to this envelope.",
+      "default": null
+    },
+    "timestamp": {
+      "type": ["string", "null"],
+      "description": "ISO 8601 UTC timestamp when the envelope was created.",
+      "examples": ["2024-01-15T10:00:00Z"],
+      "default": null
+    },
+    "actor": {
+      "$ref": "#/$defs/ActorDescriptor"
+    },
+    "target": {
+      "$ref": "#/$defs/TargetDescriptor"
+    },
+    "intent": {
+      "$ref": "#/$defs/IntentPayload"
+    },
+    "desired_outcome": {
+      "$ref": "#/$defs/DesiredOutcome"
+    },
+    "constraints": {
+      "$ref": "#/$defs/IntentConstraints"
+    },
+    "context": {
+      "$ref": "#/$defs/IntentContext"
+    },
+    "capability_requirements": {
+      "type": "array",
+      "description": "Explicit capability requirements. If empty, the broker performs capability matching automatically.",
+      "items": {
+        "$ref": "#/$defs/CapabilityRequirement"
+      },
+      "default": []
+    },
+    "trust": {
+      "$ref": "#/$defs/TrustBlock"
+    },
+    "protocol_bindings": {
+      "type": "array",
+      "description": "Preferred protocol bindings in priority order.",
+      "items": {
+        "$ref": "#/$defs/ProtocolBinding"
+      },
+      "default": []
+    },
+    "negotiation": {
+      "$ref": "#/$defs/NegotiationHints"
+    },
+    "integrity": {
+      "$ref": "#/$defs/IntegrityBlock"
+    },
+    "provenance": {
+      "oneOf": [
+        { "$ref": "#/$defs/ProvenanceBlock" },
+        { "type": "null" }
+      ],
+      "description": "Provenance block recording originator, delegation chain, and authority scope. Null if no delegation.",
+      "default": null
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Vendor or application extension metadata. Keys should be namespaced (e.g., 'x-acme.priority'). Keys starting with 'x-sip.' are reserved for official protocol use.",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ActorDescriptor": {
+      "type": "object",
+      "description": "Describes the actor submitting the intent.",
+      "required": ["actor_id", "actor_type", "name", "trust_level", "scopes"],
+      "properties": {
+        "actor_id": {
+          "type": "string",
+          "description": "Unique identifier for the actor."
+        },
+        "actor_type": {
+          "type": "string",
+          "description": "Type of actor.",
+          "enum": ["ai_agent", "service", "human", "system"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable actor name."
+        },
+        "trust_level": {
+          "type": "string",
+          "description": "Trust tier declared by the actor.",
+          "enum": ["public", "internal", "privileged", "admin"]
+        },
+        "scopes": {
+          "type": "array",
+          "description": "Permission scopes held by the actor.",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "TargetDescriptor": {
+      "type": "object",
+      "description": "Identifies the target of the intent.",
+      "required": ["target_type"],
+      "properties": {
+        "target_type": {
+          "type": "string",
+          "description": "Type of target.",
+          "enum": ["capability", "agent", "service", "resource", "system"]
+        },
+        "target_id": {
+          "type": ["string", "null"],
+          "description": "Optional explicit target ID. If null, the broker resolves the target via capability matching.",
+          "default": null
+        },
+        "namespace": {
+          "type": ["string", "null"],
+          "description": "Optional namespace or domain hint for target resolution.",
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntentPayload": {
+      "type": "object",
+      "description": "The semantic intent being expressed.",
+      "required": ["intent_name", "intent_domain", "operation_class"],
+      "properties": {
+        "intent_name": {
+          "type": "string",
+          "description": "Machine-readable intent name (e.g., 'retrieve_document', 'reserve_table')."
+        },
+        "intent_domain": {
+          "type": "string",
+          "description": "Domain or category of the intent (e.g., 'knowledge_management', 'booking')."
+        },
+        "operation_class": {
+          "type": "string",
+          "description": "Broad operation class for policy and risk evaluation.",
+          "enum": ["retrieve", "create", "update", "delete", "analyze", "notify", "execute", "query"]
+        },
+        "natural_language_hint": {
+          "type": ["string", "null"],
+          "description": "Optional natural language description. Audit annotation only — no operational effect.",
+          "default": null
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Intent-specific parameters passed to the matched capability.",
+          "additionalProperties": true,
+          "default": {}
+        }
+      },
+      "additionalProperties": false
+    },
+    "DesiredOutcome": {
+      "type": "object",
+      "description": "Describes the desired outcome of this intent.",
+      "required": ["summary"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "Human-readable description of the desired result."
+        },
+        "output_format": {
+          "type": ["string", "null"],
+          "description": "Preferred output format (e.g., 'json', 'text', 'csv').",
+          "default": null
+        },
+        "success_criteria": {
+          "type": "array",
+          "description": "Optional list of success criteria.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntentConstraints": {
+      "type": "object",
+      "description": "Operational constraints on intent execution.",
+      "properties": {
+        "time_budget_ms": {
+          "type": ["integer", "null"],
+          "description": "Maximum allowed execution time in milliseconds.",
+          "default": null
+        },
+        "cost_budget": {
+          "type": ["number", "null"],
+          "description": "Maximum allowed cost (arbitrary unit).",
+          "default": null
+        },
+        "allowed_actions": {
+          "type": "array",
+          "description": "Explicit list of allowed action verbs.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "forbidden_actions": {
+          "type": "array",
+          "description": "Explicit list of forbidden action verbs.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "data_sensitivity": {
+          "type": ["string", "null"],
+          "description": "Data sensitivity classification.",
+          "enum": ["public", "internal", "confidential", "restricted", null],
+          "default": null
+        },
+        "determinism_required": {
+          "type": ["string", "null"],
+          "description": "Determinism requirement level.",
+          "enum": ["strict", "best_effort", null],
+          "default": null
+        },
+        "priority": {
+          "type": ["string", "null"],
+          "description": "Execution priority hint.",
+          "enum": ["low", "normal", "high", "critical", null],
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntentContext": {
+      "type": "object",
+      "description": "Ambient context metadata for tracing and routing.",
+      "properties": {
+        "session_id": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "user_locale": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "environment": {
+          "type": ["string", "null"],
+          "enum": ["production", "staging", "development", "test", null],
+          "default": null
+        },
+        "additional": {
+          "type": "object",
+          "additionalProperties": true,
+          "default": {}
+        }
+      },
+      "additionalProperties": false
+    },
+    "CapabilityRequirement": {
+      "type": "object",
+      "description": "An explicit capability requirement hint.",
+      "required": ["capability_name"],
+      "properties": {
+        "capability_name": {
+          "type": "string",
+          "description": "Capability ID or name being requested."
+        },
+        "required_scopes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "preferred_binding": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "minimum_trust_tier": {
+          "type": ["string", "null"],
+          "enum": ["public", "internal", "privileged", "admin", null],
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "TrustBlock": {
+      "type": "object",
+      "description": "Trust and delegation metadata.",
+      "properties": {
+        "declared_trust_level": {
+          "type": ["string", "null"],
+          "enum": ["public", "internal", "privileged", "admin", null],
+          "default": null
+        },
+        "delegation_chain": {
+          "type": "array",
+          "description": "Ordered list of actor IDs in the delegation chain.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "token_reference": {
+          "type": ["string", "null"],
+          "description": "Reference to an external bearer token or credential.",
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProtocolBinding": {
+      "type": "object",
+      "description": "A preferred execution protocol binding.",
+      "required": ["binding_type"],
+      "properties": {
+        "binding_type": {
+          "type": "string",
+          "description": "Execution protocol.",
+          "enum": ["rest", "grpc", "mcp", "a2a", "rag"]
+        },
+        "endpoint": {
+          "type": ["string", "null"],
+          "description": "Optional explicit endpoint URI.",
+          "default": null
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "default": {}
+        }
+      },
+      "additionalProperties": false
+    },
+    "NegotiationHints": {
+      "type": "object",
+      "description": "Hints to guide capability negotiation.",
+      "properties": {
+        "candidate_capabilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "allow_fallback": {
+          "type": "boolean",
+          "description": "Whether to allow fallback to lower-scored capabilities.",
+          "default": true
+        },
+        "max_candidates": {
+          "type": "integer",
+          "description": "Maximum number of candidates to consider.",
+          "default": 5
+        }
+      },
+      "additionalProperties": false
+    },
+    "IntegrityBlock": {
+      "type": "object",
+      "description": "Envelope integrity metadata.",
+      "properties": {
+        "schema_version": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "signed": {
+          "type": "boolean",
+          "description": "Whether the envelope has been cryptographically signed.",
+          "default": false
+        },
+        "signature_reference": {
+          "type": ["string", "null"],
+          "description": "Reference to an external signature or signing key.",
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProvenanceBlock": {
+      "type": "object",
+      "description": "Records the originator, submitting actor, delegation chain, and authority scope for auditing and trust validation.",
+      "required": ["originator", "submitted_by"],
+      "properties": {
+        "originator": {
+          "type": "string",
+          "description": "ID of the original human or system that originated the intent."
+        },
+        "submitted_by": {
+          "type": "string",
+          "description": "ID of the actor that submitted this envelope to the broker."
+        },
+        "on_behalf_of": {
+          "type": ["string", "null"],
+          "description": "Actor ID on whose behalf this intent is submitted.",
+          "default": null
+        },
+        "delegation_chain": {
+          "type": "array",
+          "description": "Ordered list of actor IDs in the delegation chain from originator to submitter.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "delegation_purpose": {
+          "type": ["string", "null"],
+          "description": "Human-readable reason for delegation.",
+          "default": null
+        },
+        "delegation_expiry": {
+          "type": ["string", "null"],
+          "description": "ISO 8601 UTC timestamp when the delegation expires.",
+          "default": null
+        },
+        "authority_scope": {
+          "type": "array",
+          "description": "Scopes granted to the submitting actor by the originator.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

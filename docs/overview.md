@@ -2,11 +2,11 @@
 
 ## What is SIP?
 
-**Semantic Intent Protocol (SIP) is a deterministic control plane protocol for AI agents and software systems.**
+**Semantic Intent Protocol (SIP) is an open, deterministic control-plane protocol for AI agents, services, and infrastructure systems.**
 
-SIP converts semantic intent into validated, authorized execution plans before actions are executed in external systems. It sits above execution protocols (REST, gRPC, MCP, A2A, RAG) and below AI agent reasoning layers, providing a structured negotiation, authorization, and planning layer between them.
+SIP provides a standardized, machine-interpretable intent layer that enables interoperability between AI agents, tools, and execution systems. It converts semantic intent into validated, authorized execution plans before actions are executed in external systems. SIP sits above execution protocols (REST, gRPC, MCP, A2A, RAG) and below AI agent reasoning layers, providing a structured negotiation, authorization, and planning layer between them.
 
-SIP complements AI frameworks, APIs, and execution runtimes by providing a security-aware negotiation and planning layer between them.
+SIP complements AI frameworks, APIs, and execution runtimes — it does not replace them.
 
 ## The Problem SIP Solves
 
