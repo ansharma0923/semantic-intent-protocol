@@ -423,3 +423,9 @@ before opening issues or pull requests.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to contribute, PR process, and protocol change guidance
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community standards
 - [SECURITY.md](SECURITY.md) — how to report security vulnerabilities privately
+
+When opening an issue, please use the appropriate template:
+
+- **Bug report** — for runtime errors, unexpected behavior, or test failures
+- **Feature request** — for improvements to the SDK, broker, or tooling
+- **Protocol Change Proposal** — for changes to protocol semantics, the wire format, or the security model

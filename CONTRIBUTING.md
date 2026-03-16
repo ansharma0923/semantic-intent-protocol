@@ -21,6 +21,30 @@ design goals and constraints.
 
 ---
 
+## Using Issue Templates
+
+When opening a GitHub issue, please select the appropriate template:
+
+- **Bug Report** — Use this template for runtime errors, unexpected behavior,
+  test failures, or any reproducible defect in the SIP implementation or SDKs.
+  Include steps to reproduce, your environment, and any relevant logs.
+
+- **Feature Request** — Use this template for proposed improvements to the
+  Python SDK, Go SDK, broker, tooling, or documentation that do not change
+  protocol semantics.
+
+- **Protocol Change Proposal** — Use this template when proposing changes to
+  the SIP protocol specification, including the wire format
+  ([docs/sip-wire-spec-v0.1.md](docs/sip-wire-spec-v0.1.md)), the security
+  model, capability negotiation semantics, or protocol vectors. Protocol
+  proposals require a governance review before any implementation work begins.
+  See [docs/governance.md](docs/governance.md) for the full process.
+
+> For security vulnerabilities, **do not** open a public issue.
+> Follow the private disclosure process described in [SECURITY.md](SECURITY.md).
+
+---
+
 ## Pull Request Process
 
 1. **Fork** the repository and create a feature branch from `main`.
