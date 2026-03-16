@@ -55,9 +55,14 @@ python -m venv .venv
 source .venv/bin/activate        # Linux / macOS
 # .venv\Scripts\activate         # Windows
 
-# Install in development mode (includes all extras)
+# Install in development mode (includes all dev/test extras)
 pip install -e ".[dev]"
+
+# Alternatively, install dependencies from requirements.txt
+pip install -r requirements.txt
 ```
+
+> **Note for contributors:** The `[dev]` extras and `requirements.txt` both include `jsonschema`, which is required by the schema validation tests in `tests/schema_validation/`.
 
 ### Run the examples
 
