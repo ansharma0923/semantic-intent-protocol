@@ -439,7 +439,7 @@ pytest tests/schema_validation/ -v
 | [docs/examples-walkthrough.md](docs/examples-walkthrough.md) | Guided walkthrough of all examples |
 | [docs/python-sdk.md](docs/python-sdk.md) | Python SDK reference guide |
 | [docs/governance.md](docs/governance.md) | Protocol governance, versioning, and compatibility |
-| [docs/releases/v0.1.1.md](docs/releases/v0.1.1.md) | v0.1.1 release notes |
+| [docs/releases/v0.1.2.md](docs/releases/v0.1.2.md) | v0.1.2 release notes |
 
 ## Ecosystem
 
@@ -460,8 +460,8 @@ pytest tests/schema_validation/ -v
 
 | SDK | Language | Status |
 |---|---|---|
-| [`sip.sdk`](docs/python-sdk.md) | Python | Stable (v0.1.1) |
-| [`sdk/go/`](sdk/go/) | Go | Stable (v0.1.1) |
+| [`sip.sdk`](docs/python-sdk.md) | Python | Stable (v0.1.2) |
+| [`sdk/go/`](sdk/go/) | Go | Stable (v0.1.2) |
 
 ---
 
