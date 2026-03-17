@@ -486,7 +486,7 @@ make run-examples
 
 ## Roadmap
 
-### Stable in v0.1.1
+### Stable in v0.1.2
 - Protocol specification (SIP v0.1 wire format)
 - Python reference implementation
 - Python SDK (`sip.sdk`) with full public API
@@ -496,7 +496,7 @@ make run-examples
 - Federation model (distributed broker discovery)
 - Protocol vectors (normative canonical JSON fixtures)
 - Formal JSON Schemas for all protocol objects
-- 542+ unit, functional, and schema validation tests
+- 571+ unit, functional, and schema validation tests
 - Protocol governance documentation
 
 ### Future directions
