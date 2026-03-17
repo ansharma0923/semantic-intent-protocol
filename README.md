@@ -420,7 +420,7 @@ pytest tests/functional/ -v
 pytest tests/schema_validation/ -v
 ```
 
-542+ tests, 0 failures in the v0.1.2 reference implementation.
+571+ tests, 0 failures in the v0.1.2 reference implementation.
 
 ---
 
