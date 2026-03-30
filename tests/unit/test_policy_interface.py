@@ -290,3 +290,83 @@ class TestCanonicalPolicyEngine:
         result = engine.evaluate(intent, [])
         assert result.allowed is False
         assert result.reason_code == ReasonCode.EVALUATION_ERROR
+
+
+class TestFailClosedRequiredApprovals:
+    """Tests for check_required_approvals_met (requirement K.7)."""
+
+    def setup_method(self) -> None:
+        from sip.policy.interface import PolicyResult, ReasonCode
+        self.allow_with_approvals = PolicyResult.allow(
+            allowed_capabilities=[],
+            required_approvals=["approver-a", "approver-b"],
+        )
+        self.allow_no_approvals = PolicyResult.allow(allowed_capabilities=[])
+
+    def test_passes_when_no_approvals_required(self) -> None:
+        from sip.core.fail_closed import check_required_approvals_met, FailClosedError
+        # Should not raise
+        check_required_approvals_met(self.allow_no_approvals)
+
+    def test_passes_when_all_approvals_provided(self) -> None:
+        from sip.core.fail_closed import check_required_approvals_met, FailClosedError
+        # Should not raise when all required approvals are provided
+        check_required_approvals_met(
+            self.allow_with_approvals,
+            provided_approvals=["approver-a", "approver-b"],
+        )
+
+    def test_passes_when_superset_of_approvals_provided(self) -> None:
+        from sip.core.fail_closed import check_required_approvals_met, FailClosedError
+        check_required_approvals_met(
+            self.allow_with_approvals,
+            provided_approvals=["approver-a", "approver-b", "extra-approver"],
+        )
+
+    def test_fail_closed_when_no_approvals_provided(self) -> None:
+        """Fail closed: required approvals present but none provided."""
+        from sip.core.fail_closed import check_required_approvals_met, FailClosedError
+        with pytest.raises(FailClosedError) as exc_info:
+            check_required_approvals_met(self.allow_with_approvals)
+        assert exc_info.value.denial.reason_code == ReasonCode.MISSING_REQUIRED_APPROVALS
+        assert "approver-a" in exc_info.value.denial.reason or \
+               "approver-a" in str(exc_info.value.denial.required_actions)
+
+    def test_fail_closed_when_only_partial_approvals_provided(self) -> None:
+        """Fail closed: only one of two required approvers has approved."""
+        from sip.core.fail_closed import check_required_approvals_met, FailClosedError
+        with pytest.raises(FailClosedError) as exc_info:
+            check_required_approvals_met(
+                self.allow_with_approvals,
+                provided_approvals=["approver-a"],
+            )
+        denial = exc_info.value.denial
+        assert denial.reason_code == ReasonCode.MISSING_REQUIRED_APPROVALS
+        # Missing approver should be identified
+        assert "approver-b" in denial.reason or any(
+            "approver-b" in action for action in denial.required_actions
+        )
+
+    def test_fail_closed_empty_provided_list(self) -> None:
+        """Fail closed: empty provided_approvals list is equivalent to none."""
+        from sip.core.fail_closed import check_required_approvals_met, FailClosedError
+        with pytest.raises(FailClosedError) as exc_info:
+            check_required_approvals_met(
+                self.allow_with_approvals,
+                provided_approvals=[],
+            )
+        assert exc_info.value.denial.reason_code == ReasonCode.MISSING_REQUIRED_APPROVALS
+
+    def test_denial_metadata_contains_required_and_provided(self) -> None:
+        """The denial metadata must record both required and provided approvals."""
+        from sip.core.fail_closed import check_required_approvals_met, FailClosedError
+        with pytest.raises(FailClosedError) as exc_info:
+            check_required_approvals_met(
+                self.allow_with_approvals,
+                provided_approvals=["approver-a"],
+            )
+        meta = exc_info.value.denial.metadata
+        assert "required" in meta
+        assert "provided" in meta
+        assert "approver-b" in meta["required"]
+        assert "approver-a" in meta["provided"]

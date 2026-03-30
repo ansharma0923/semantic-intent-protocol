@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ansharma0923/semantic-intent-protocol/schema/sip-normalized-intent.schema.json",
+  "title": "SIP NormalizedIntent",
+  "description": "Canonical internal normalized intent model produced by the SIP pipeline from an IntentEnvelope. NormalizedIntent is never exposed on the wire; IntentEnvelope remains the external protocol object. This schema is informational and documents the internal v0.2 shape.",
+  "type": "object",
+  "required": [
+    "intent_id",
+    "correlation_id",
+    "schema_version",
+    "actor",
+    "goal",
+    "constraints",
+    "data_sensitivity",
+    "trust_requirements",
+    "raw_request",
+    "created_at"
+  ],
+  "properties": {
+    "intent_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this intent. Copied from IntentEnvelope.intent_id."
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Correlation / trace identifier. Copied from IntentEnvelope.trace_id."
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "Version of the NormalizedIntent schema.",
+      "enum": ["0.2"]
+    },
+    "actor": {
+      "type": "object",
+      "description": "Normalized representation of the originating actor.",
+      "required": ["actor_id", "actor_type", "name", "trust_level"],
+      "properties": {
+        "actor_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique identifier of the actor."
+        },
+        "actor_type": {
+          "type": "string",
+          "description": "Type of the actor.",
+          "enum": ["human", "ai_agent", "service", "system"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name of the actor."
+        },
+        "trust_level": {
+          "type": "string",
+          "description": "Trust level granted to this actor.",
+          "enum": ["public", "internal", "privileged", "admin"]
+        },
+        "scopes": {
+          "type": "array",
+          "description": "Permission scopes granted to the actor.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "originator": {
+          "type": ["string", "null"],
+          "description": "Originator actor ID when this intent was delegated, if provenance was declared.",
+          "default": null
+        },
+        "delegation_chain": {
+          "type": "array",
+          "description": "Ordered list of actor IDs through which authority was delegated.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "tenant": {
+      "type": ["string", "null"],
+      "description": "Optional tenant or organization identifier extracted from context.",
+      "default": null
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable statement of what the actor wants to achieve. Copied from IntentEnvelope.desired_outcome.summary."
+    },
+    "constraints": {
+      "type": "object",
+      "description": "Flattened execution constraints extracted from the envelope.",
+      "properties": {
+        "time_budget_ms": {
+          "type": ["integer", "null"],
+          "description": "Maximum allowed execution time in milliseconds.",
+          "default": null
+        },
+        "cost_budget": {
+          "type": ["number", "null"],
+          "description": "Maximum allowed cost budget.",
+          "default": null
+        },
+        "data_sensitivity": {
+          "type": "string",
+          "description": "Maximum data sensitivity permitted.",
+          "enum": ["public", "internal", "confidential", "restricted"],
+          "default": "internal"
+        },
+        "determinism_required": {
+          "type": "string",
+          "description": "Required level of determinism.",
+          "enum": ["strict", "bounded", "advisory"],
+          "default": "strict"
+        },
+        "priority": {
+          "type": "string",
+          "description": "Execution priority.",
+          "enum": ["low", "normal", "high", "critical"],
+          "default": "normal"
+        },
+        "allowed_actions": {
+          "type": "array",
+          "description": "Explicitly allowed action names.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "forbidden_actions": {
+          "type": "array",
+          "description": "Explicitly forbidden action names.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "required_capabilities": {
+      "type": "array",
+      "description": "Required capability names extracted from IntentEnvelope.capability_requirements.",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "risk_level": {
+      "type": ["string", "null"],
+      "description": "Declared risk level, if specified. Risk level is a property of capability, not of the envelope.",
+      "default": null
+    },
+    "compliance_requirements": {
+      "type": "array",
+      "description": "Compliance requirement strings extracted from context.additional['compliance'].",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "data_sensitivity": {
+      "type": "string",
+      "description": "Maximum data sensitivity permitted; mirrors constraints.data_sensitivity.",
+      "enum": ["public", "internal", "confidential", "restricted"]
+    },
+    "jurisdiction": {
+      "type": ["string", "null"],
+      "description": "Jurisdiction string extracted from context.additional['jurisdiction'].",
+      "default": null
+    },
+    "preferred_execution_mode": {
+      "type": ["string", "null"],
+      "description": "Preferred execution mode (binding type), extracted from the first protocol binding.",
+      "enum": ["rest", "grpc", "mcp", "a2a", "rag", null],
+      "default": null
+    },
+    "trust_requirements": {
+      "type": "string",
+      "description": "Minimum trust level required, derived from capability requirements or the trust block.",
+      "enum": ["public", "internal", "privileged", "admin"]
+    },
+    "raw_request": {
+      "type": "object",
+      "description": "The original IntentEnvelope serialised as a dict for audit purposes.",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary additional metadata, including envelope context fields.",
+      "additionalProperties": true,
+      "default": {}
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp when this NormalizedIntent was created."
+    }
+  },
+  "additionalProperties": false
+}
