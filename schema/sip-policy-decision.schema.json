@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ansharma0923/semantic-intent-protocol/schema/sip-policy-decision.schema.json",
+  "title": "SIP PolicyDecision",
+  "description": "Result of SIP policy evaluation. PolicyDecision (PolicyResult) is the structured output of the SIP policy engine. It records whether the intent is allowed, which capabilities passed all policy checks, what conditions apply, and which approvals are required.",
+  "type": "object",
+  "required": [
+    "allowed",
+    "reason_code",
+    "reason"
+  ],
+  "properties": {
+    "allowed": {
+      "type": "boolean",
+      "description": "Whether the intent is permitted to proceed. False means the intent is denied."
+    },
+    "reason_code": {
+      "type": "string",
+      "description": "Machine-readable denial or allow reason code.",
+      "enum": [
+        "ALLOWED",
+        "MISSING_PROVENANCE",
+        "MISSING_TRUST_LEVEL",
+        "MISSING_REQUIRED_APPROVALS",
+        "MISSING_SCOPES",
+        "NO_ALLOWED_CAPABILITIES",
+        "PRIVILEGE_ESCALATION",
+        "RISK_DATA_SENSITIVITY_DENIED",
+        "DELEGATION_CHAIN_TOO_LONG",
+        "EVALUATION_ERROR",
+        "CAPABILITY_DENYLIST",
+        "COMPLIANCE_VIOLATION"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "description": "Human-readable description of the policy decision.",
+      "default": ""
+    },
+    "conditions": {
+      "type": "array",
+      "description": "Conditions that must be met before execution may proceed. May be present even when allowed=true (e.g. audit-only conditions).",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "required_approvals": {
+      "type": "array",
+      "description": "List of approver IDs or roles that must sign off before execution may proceed. Non-empty means execution is gated on human or system approval.",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "allowed_capabilities": {
+      "type": "array",
+      "description": "Subset of the evaluated candidate capabilities that passed all policy checks. Empty when allowed=false.",
+      "items": {
+        "type": "object",
+        "description": "A capability descriptor that passed policy evaluation.",
+        "required": ["capability_id", "name"],
+        "properties": {
+          "capability_id": { "type": "string" },
+          "name": { "type": "string" }
+        },
+        "additionalProperties": true
+      },
+      "default": []
+    },
+    "evaluation_notes": {
+      "type": "array",
+      "description": "Ordered list of human-readable notes produced during evaluation. Useful for debugging policy decisions.",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary additional metadata produced during policy evaluation.",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "additionalProperties": false
+}

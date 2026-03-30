@@ -11,6 +11,8 @@ This directory contains the formal JSON Schema definitions for the Semantic Inte
 | [`sip-negotiation-result.schema.json`](sip-negotiation-result.schema.json) | SIP NegotiationResult | Ranked candidates, selected capability, and policy decision |
 | [`sip-execution-plan.schema.json`](sip-execution-plan.schema.json) | SIP ExecutionPlan | Deterministic, fully specified execution plan ready for adapter translation |
 | [`sip-audit-record.schema.json`](sip-audit-record.schema.json) | SIP AuditRecord | Immutable audit log entry for every processed intent |
+| [`sip-normalized-intent.schema.json`](sip-normalized-intent.schema.json) | SIP NormalizedIntent | Internal canonical intent model (v0.2); produced from IntentEnvelope by the canonical pipeline |
+| [`sip-policy-decision.schema.json`](sip-policy-decision.schema.json) | SIP PolicyDecision | Structured result of policy evaluation — allow/deny, filtered capabilities, conditions, and required approvals |
 
 ## Purpose
 
@@ -66,8 +68,16 @@ Key source modules:
 - `sip/negotiation/models.py` → `sip-negotiation-result.schema.json`
 - `sip/negotiation/planner.py` → `sip-execution-plan.schema.json`
 - `sip/observability/audit.py` → `sip-audit-record.schema.json`
+- `sip/core/normalized_intent.py` → `sip-normalized-intent.schema.json` (internal model, v0.2)
+- `sip/policy/interface.py` → `sip-policy-decision.schema.json` (internal model, v0.2)
 
 If the reference implementation is updated, the schemas should be updated to match.
+
+> **Note on internal schemas**: `sip-normalized-intent.schema.json` and
+> `sip-policy-decision.schema.json` describe _internal_ models used by the
+> canonical `SIPPipeline`.  These objects are never sent on the wire;
+> `IntentEnvelope` remains the external entry point.  The schemas are
+> provided for documentation, SDK implementers, and interoperability testing.
 
 ## Versioning
 
