@@ -40,6 +40,29 @@ class PolicyDecisionSummary(BaseModel):
         default_factory=list,
         description="Human-readable policy evaluation notes.",
     )
+    # Extended fields (v0.2) – all optional so existing code is unaffected
+    reason_code: str = Field(
+        default="",
+        description=(
+            "Machine-readable reason code for the policy decision. "
+            "Empty string when not provided (legacy path)."
+        ),
+    )
+    conditions: list[str] = Field(
+        default_factory=list,
+        description="Conditions that must be met before execution may proceed.",
+    )
+    required_approvals: list[str] = Field(
+        default_factory=list,
+        description="Required approver IDs or roles.",
+    )
+    allowed_capabilities: list[Any] = Field(
+        default_factory=list,
+        description=(
+            "Capability descriptors that passed all policy checks. "
+            "Populated by the canonical policy engine; empty on legacy path."
+        ),
+    )
 
 
 class NegotiationResult(BaseModel):

@@ -96,6 +96,31 @@ class AuditRecord(BaseModel):
         default_factory=list,
         description="Delegation chain captured from the provenance block, if present.",
     )
+    # Extended fields (v0.2) – all optional so existing code is unaffected
+    correlation_id: str | None = Field(
+        default=None,
+        description="Correlation / trace identifier (from NormalizedIntent or trace_id).",
+    )
+    normalized_intent_id: str | None = Field(
+        default=None,
+        description="ID of the NormalizedIntent processed (matches intent_id for envelope-based flows).",
+    )
+    policy_reason_code: str | None = Field(
+        default=None,
+        description="Machine-readable reason code from the policy decision.",
+    )
+    selection_basis: str | None = Field(
+        default=None,
+        description="Human-readable explanation of why the selected capability was chosen.",
+    )
+    expected_execution_path: list[str] = Field(
+        default_factory=list,
+        description="Ordered list of execution steps from the execution plan.",
+    )
+    pre_execution_denial: bool = Field(
+        default=False,
+        description="True when this record captures a pre-execution denial (no plan was produced).",
+    )
     extensions: dict[str, Any] = Field(
         default_factory=dict,
         description=(
@@ -131,6 +156,13 @@ def create_audit_record(
     originator: str | None = None,
     submitting_actor: str | None = None,
     delegation_chain: list[str] | None = None,
+    # Extended fields (v0.2) – all optional for backward compatibility
+    correlation_id: str | None = None,
+    normalized_intent_id: str | None = None,
+    policy_reason_code: str | None = None,
+    selection_basis: str | None = None,
+    expected_execution_path: list[str] | None = None,
+    pre_execution_denial: bool = False,
 ) -> AuditRecord:
     """Construct an AuditRecord from named parameters.
 
@@ -140,6 +172,11 @@ def create_audit_record(
     The ``originator``, ``submitting_actor``, and ``delegation_chain`` fields
     are optional and should be populated from the envelope's ProvenanceBlock
     when present.
+
+    Extended fields (``correlation_id``, ``normalized_intent_id``,
+    ``policy_reason_code``, ``selection_basis``, ``expected_execution_path``,
+    ``pre_execution_denial``) are v0.2 additions and default to safe values
+    when not provided.
     """
     return AuditRecord(
         trace_id=trace_id,
@@ -159,4 +196,10 @@ def create_audit_record(
         originator=originator,
         submitting_actor=submitting_actor,
         delegation_chain=delegation_chain or [],
+        correlation_id=correlation_id,
+        normalized_intent_id=normalized_intent_id,
+        policy_reason_code=policy_reason_code,
+        selection_basis=selection_basis,
+        expected_execution_path=expected_execution_path or [],
+        pre_execution_denial=pre_execution_denial,
     )
