@@ -7,6 +7,7 @@ and constructs execution steps.
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any
 from uuid import uuid4
 
@@ -16,6 +17,58 @@ from sip.envelope.models import BindingType, IntentEnvelope
 from sip.extensions import validate_extension_keys
 from sip.negotiation.results import NegotiationResult
 from sip.registry.models import CapabilityDescriptor
+
+
+# ---------------------------------------------------------------------------
+# Execution abstraction types
+# ---------------------------------------------------------------------------
+
+
+class ExecutionType(str, Enum):
+    """Execution type abstraction for a plan step.
+
+    These are protocol-agnostic labels that describe *what kind* of execution
+    is required.  They are separate from ``BindingType`` (which describes
+    the wire protocol) to allow plans to be reasoned about without binding
+    to a specific SDK or transport.
+
+    Values
+    ------
+    MCP_TOOL
+        Model Context Protocol tool invocation.
+    REST_API
+        HTTP REST API call.
+    GRPC_SERVICE
+        gRPC service call.
+    A2A_AGENT
+        Agent-to-agent delegation (A2A protocol).
+    INTERNAL_SKILL
+        Internal system skill (no external network call).
+    MANUAL_STEP
+        Step that requires human action before the plan can continue.
+    """
+
+    MCP_TOOL = "mcp_tool"
+    REST_API = "rest_api"
+    GRPC_SERVICE = "grpc_service"
+    A2A_AGENT = "a2a_agent"
+    INTERNAL_SKILL = "internal_skill"
+    MANUAL_STEP = "manual_step"
+
+
+# Mapping from BindingType to ExecutionType
+_BINDING_TO_EXECUTION_TYPE: dict[BindingType, ExecutionType] = {
+    BindingType.REST: ExecutionType.REST_API,
+    BindingType.GRPC: ExecutionType.GRPC_SERVICE,
+    BindingType.MCP: ExecutionType.MCP_TOOL,
+    BindingType.A2A: ExecutionType.A2A_AGENT,
+    BindingType.RAG: ExecutionType.REST_API,  # RAG is typically REST-based
+}
+
+
+def binding_to_execution_type(binding: BindingType) -> ExecutionType:
+    """Map a ``BindingType`` to an ``ExecutionType``."""
+    return _BINDING_TO_EXECUTION_TYPE.get(binding, ExecutionType.REST_API)
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +93,10 @@ class ExecutionStep(BaseModel):
     description: str = Field(description="What this step does.")
     capability_id: str = Field(description="Capability invoked in this step.")
     binding: BindingType = Field(description="Binding used for this step.")
+    execution_type: ExecutionType = Field(
+        default=ExecutionType.REST_API,
+        description="Execution type abstraction for this step.",
+    )
     parameters: dict[str, Any] = Field(
         default_factory=dict,
         description="Grounded parameters for this step.",
@@ -62,6 +119,21 @@ class ExecutionPlan(BaseModel):
     """A deterministic execution plan produced by the SIP planner.
 
     The plan is ready to hand to a translator adapter for execution.
+
+    Extended fields (v0.2)
+    ----------------------
+    execution_type
+        Protocol-agnostic execution type for the selected capability.
+    preconditions
+        Conditions that must be true before execution begins.
+    guard_conditions
+        Runtime guard conditions evaluated during execution.
+    fallback_behavior
+        What to do if the primary execution path fails.
+    expected_outputs
+        Descriptions of the expected outputs.
+    selection_basis
+        Human-readable explanation of why this capability was selected.
     """
 
     plan_id: str = Field(
@@ -75,6 +147,10 @@ class ExecutionPlan(BaseModel):
     selected_binding: BindingType = Field(
         description="The binding selected for execution.",
     )
+    execution_type: ExecutionType = Field(
+        default=ExecutionType.REST_API,
+        description="Execution type abstraction for the selected capability.",
+    )
     deterministic_target: dict[str, Any] = Field(
         description="Binding-specific deterministic target information.",
     )
@@ -83,6 +159,29 @@ class ExecutionPlan(BaseModel):
     )
     execution_steps: list[ExecutionStep] = Field(
         description="Ordered list of execution steps.",
+    )
+    preconditions: list[str] = Field(
+        default_factory=list,
+        description="Conditions that must be true before execution begins.",
+    )
+    guard_conditions: list[str] = Field(
+        default_factory=list,
+        description="Runtime guard conditions evaluated during execution.",
+    )
+    fallback_behavior: str = Field(
+        default="fail_closed",
+        description=(
+            "What to do if the primary execution path fails. "
+            "Defaults to 'fail_closed' (deny the operation)."
+        ),
+    )
+    expected_outputs: list[str] = Field(
+        default_factory=list,
+        description="Descriptions of the expected outputs.",
+    )
+    selection_basis: str = Field(
+        default="",
+        description="Human-readable explanation of why this capability was selected.",
     )
     policy_checks_passed: list[PolicyCheckRecord] = Field(
         default_factory=list,
@@ -217,6 +316,7 @@ class ExecutionPlanner:
                 ),
                 capability_id=cap.capability_id,
                 binding=binding,
+                execution_type=binding_to_execution_type(binding),
                 parameters=grounded,
                 depends_on=[],
             )
@@ -256,13 +356,21 @@ class ExecutionPlanner:
                 "delegation_chain": list(prov.delegation_chain),
             }
 
+        exec_type = binding_to_execution_type(binding)
+
         return ExecutionPlan(
             intent_id=envelope.intent_id,
             selected_capability=cap,
             selected_binding=binding,
+            execution_type=exec_type,
             deterministic_target=target,
             grounded_parameters=grounded,
             execution_steps=steps,
+            preconditions=[],
+            guard_conditions=[],
+            fallback_behavior="fail_closed",
+            expected_outputs=[cap.output_schema.description] if cap.output_schema.description else [],
+            selection_basis=negotiation.selection_rationale,
             policy_checks_passed=policy_checks,
             approval_required=approval_required,
             trace=TraceMetadata(

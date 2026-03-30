@@ -590,3 +590,138 @@ Remote capability results carry a `discovery_path` list that records the broker 
 
 The local broker is always the final policy authority. Remote discovery results do not bypass local policy evaluation. The `routing_allowed` flag is a pre-filter; local scope, risk, and sensitivity checks still apply to all capabilities — local and remote — before execution planning proceeds.
 
+
+---
+
+## 9. Production Control Plane (v0.2)
+
+This section documents the production-grade evolution of SIP introduced in v0.2. All changes are **additive and backward compatible** — existing behaviour is preserved.
+
+### 9.1 Canonical Internal Model: NormalizedIntent
+
+`NormalizedIntent` (`sip.core.normalized_intent`) is a new internal model that provides a stable, version-independent view of an actor's intent inside the pipeline. It is never exposed on the wire; `IntentEnvelope` remains the external protocol object.
+
+The `from_envelope(envelope)` adapter converts an `IntentEnvelope` into a `NormalizedIntent`. The adapter **fails closed**: any missing critical field (intent_id, correlation_id, actor identity, goal) raises `ValueError`.
+
+Key fields:
+- `intent_id` / `correlation_id` / `schema_version`
+- `actor` (NormalizedActor with originator + delegation_chain)
+- `tenant`, `goal`, `constraints`, `required_capabilities`
+- `risk_level`, `compliance_requirements`, `data_sensitivity`, `jurisdiction`
+- `preferred_execution_mode`, `trust_requirements`
+- `raw_request` (full envelope snapshot for audit)
+- `metadata`
+
+### 9.2 Pluggable Policy Engine Interface
+
+`PolicyEngineInterface` (`sip.policy.interface`) is a new ABC that defines the canonical policy evaluation contract:
+
+```python
+def evaluate(normalized_intent, candidates) -> PolicyResult
+```
+
+`PolicyResult` fields:
+- `allowed` (bool)
+- `reason_code` (machine-readable, from `ReasonCode`)
+- `reason` (human-readable)
+- `conditions` (pre-execution conditions)
+- `required_approvals` (approver IDs / roles)
+- `allowed_capabilities` (filtered candidate list)
+- `evaluation_notes`
+
+`CanonicalPolicyEngine` (`sip.core.policy_engine`) implements the interface. It evaluates each candidate capability through:
+1. Trust level present (fail closed)
+2. Provenance present (when `require_provenance=True`)
+3. Delegation chain depth (max 5)
+4. Scope check per capability
+5. Trust tier check per capability
+6. Risk + operation class (approval required?)
+7. Risk + data sensitivity (hard denial)
+8. Capability-level approval override
+
+The existing `PolicyEngine` in `sip.policy.engine` is **unchanged**.
+
+### 9.3 ExecutionType Abstraction
+
+`ExecutionType` enum (`sip.negotiation.planner`) provides protocol-agnostic execution type labels, separate from the wire-level `BindingType`:
+
+| ExecutionType | Meaning |
+|---|---|
+| `mcp_tool` | Model Context Protocol tool call |
+| `rest_api` | HTTP REST API |
+| `grpc_service` | gRPC service call |
+| `a2a_agent` | Agent-to-agent delegation |
+| `internal_skill` | Internal system skill |
+| `manual_step` | Human action required |
+
+`ExecutionPlan` is extended (v0.2) with: `execution_type`, `preconditions`, `guard_conditions`, `fallback_behavior` (default: `fail_closed`), `expected_outputs`, `selection_basis`. All new fields have defaults for backward compatibility.
+
+### 9.4 DeterministicPlanner
+
+`DeterministicPlanner` (`sip.core.deterministic_planner`) is a new planner that:
+- Accepts `NormalizedIntent`, `PolicyResult`, and externally-supplied `candidates`
+- **Never performs discovery**
+- Only considers `PolicyResult.allowed_capabilities`
+- Applies stable tie-breaking: `(provider_id, capability_id)` ascending sort
+- **Fails closed** if no safe plan can be produced (`FailClosedError`)
+
+### 9.5 Extended AuditRecord (v0.2)
+
+`AuditRecord` is extended with optional fields (all default to safe values):
+- `correlation_id` – trace/correlation ID
+- `normalized_intent_id` – ID of the NormalizedIntent
+- `policy_reason_code` – machine-readable policy reason
+- `selection_basis` – explanation of capability selection
+- `expected_execution_path` – ordered step names
+- `pre_execution_denial` – True when record captures a denial
+
+### 9.6 Fail-Closed Logic
+
+`sip.core.fail_closed` provides explicit fail-closed check functions:
+- `check_policy_decision_present` – deny if result is None
+- `check_policy_allowed` – deny if policy denied
+- `check_provenance_present` – deny if required but missing
+- `check_trust_level_present` – deny if trust level missing
+- `check_allowed_capabilities_present` – deny if no capabilities pass
+- `check_required_approvals_met` – deny if approvals unsatisfied
+- `check_no_deterministic_plan_possible` – deny if plan is None
+
+All checks raise `FailClosedError` which wraps a `StructuredDenial` with `reason_code`, `reason`, and `required_actions`.
+
+### 9.7 SIPPipeline and DecisionBundle
+
+`SIPPipeline` (`sip.core.pipeline`) orchestrates the canonical 7-stage pipeline:
+
+```
+IntentEnvelope + candidate_capabilities
+         ↓
+1. Intent ingestion
+2. Intent normalization (→ NormalizedIntent)
+3. Envelope validation (existing validator)
+4. Policy evaluation (CanonicalPolicyEngine)
+5. Deterministic planning (DeterministicPlanner)
+6. Audit record generation (always, including on denial)
+7. DecisionBundle output
+```
+
+`DecisionBundle` (`sip.core.decision_bundle`) is the output:
+- `normalized_intent`
+- `policy_result`
+- `execution_plan` (None when denied)
+- `audit_record` (**always present**)
+- `denied` / `allowed` flags
+
+### 9.8 SIP Does NOT
+
+- Perform capability discovery (discovery is external, e.g. ADP)
+- Execute capabilities
+- Rank or score providers
+- Make probabilistic decisions
+
+### 9.9 Backward Compatibility
+
+- `BrokerService` and `process_intent` are **unchanged**
+- `IntentEnvelope`, `CapabilityDescriptor`, `NegotiationResult`, `ExecutionPlan`, `AuditRecord` are **extended** with optional fields only
+- All 358 existing tests continue to pass
+- `SIPPipeline` is a new, independent entry point
+
